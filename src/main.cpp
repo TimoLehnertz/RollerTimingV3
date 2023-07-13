@@ -19,6 +19,8 @@
 #include <radio.h>
 #include <rotary.h>
 #include <MasterSlaveLogic.h>
+#include <WiFiLogic.h>
+#include <Sound.h>
 
 void handleBattery() {
   float voltageDividerMeasured = analogRead(PIN_VBAT) / 4095.0 * 3.3;
@@ -39,59 +41,63 @@ void handleBattery() {
 
 void trigger() {
   triggerCount++;
-  lastTriggerUs = micros();
+  lastTriggerMs = millis();
 }
 
 void setup() {
   Serial.begin(115200);
   pinMode(PIN_ROTARY_GND, OUTPUT);
   digitalWrite(PIN_ROTARY_GND, LOW);
+  beginSounds();
   Rotary.begin();
   pinMode(PIN_LED_WHITE, OUTPUT);
   pinMode(PIN_VBAT, INPUT);
-  pinMode(PIN_LASER, INPUT_PULLUP);
+  pinMode(PIN_LASER, INPUT);
   attachInterrupt(digitalPinToInterrupt(PIN_LASER), trigger, FALLING);
   pinMode(PIN_BUZZER_GND, OUTPUT);
   digitalWrite(PIN_BUZZER_GND, LOW);
-  EasyBuzzer.setPin(PIN_BUZZER_PLUS);
+  beginLCDDisplay(); // needed for status variables
   beginRadio();
-  beginLCDDisplay();
   beginLEDDisplay();
   beginPreferences();
-  SpiffsLogic.begin();
   beginMasterSlaveLogic();
+  spiffsLogic.begin();
+  isMasterChanged(); // trigger possible changes
+  playSoundBootUp();
   Serial.println("Setup complete");
+  isDisplayChanged();
 }
 
-/**
- * @return uint16_t the last 2 bytes of the mac hoping that those uniquely identify each chip
- */
-uint16_t getUid() {
-  uint8_t mac[6];
-  esp_efuse_mac_get_default(mac);
-  return *((uint16_t*)&mac[6]);
-}
 
 void handleTriggers() {
-  static uint32_t lastTrigger = 0;
+  static uint32_t lastTimeTriggeredMs = 0;
   static uint32_t lastTriggerCount = 0;
   if(lastTriggerCount != triggerCount) {
     lastTriggerCount = triggerCount;
-    if(millis() - lastTrigger < minDelayInput->getValue()) {
+    if(lastTriggerMs - lastTimeTriggeredMs < minDelayInput->getValue() * 1000) {
       return;
+    }
+    lastTimeTriggeredMs = millis();
+    EasyBuzzer.beep(3800, 20, 100, 1,  100, 1);
+    if(isMasterCB->isChecked()) {
+
+    } else {
+      slaveTrigger(lastTriggerMs);
     }
   }
 }
 
 void loop() {
+  handleTriggers();
   handleRadioReceive();
   handleradioSend();
   handleMasterSlaveLogic();
   uiManager.handle();
-  handleTriggers();
   handleLEDS();
   handleRotary();
   handleBattery();
+  beginWiFi();
+  handleSounds();
   EasyBuzzer.update();
   loops++;
   if(millis() - lastHzMeasuredMs > 1000) {

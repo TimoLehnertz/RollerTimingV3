@@ -6,7 +6,7 @@
 
 #define MAX_CONTROLL_PACKET_SIZE 4
 
-#define TIMEOUT_US 50000 // maximum waiting time for responses
+#define TIMEOUT_US 100000 // maximum waiting time for responses
 
 #define MASTER_SLAVE_TIMEOUT_MS 3000
 #define PAUSE_TILL_RESPONSE_US 10000
@@ -54,7 +54,7 @@ typedef void(*SlaveCallback)(uint8_t* data, uint8_t dataSize, uint8_t* response,
  * @param data pointer to data send by slave
  * @param size of data
  */
-typedef void(*MasterReceiveCallback)(uint8_t* data, uint8_t size);
+typedef void(*MasterReceiveCallback)(uint8_t* data, uint8_t size, uint8_t slaveAddress);
 
 typedef uint32_t(*TimeForSize)(uint8_t size);
 
@@ -96,7 +96,7 @@ struct Connection {
 
 class MasterSlave {
 public:
-    MasterSlave(bool isMaster, TimeForSize timeForSizeCallback);
+    MasterSlave(bool master, TimeForSize timeForSizeCallback);
     
     bool begin();
     void handle();
@@ -107,7 +107,7 @@ public:
 
     uint8_t addComunication(uint8_t priority, MasterCallback masterCallback, SlaveCallback slaveCallback, MasterReceiveCallback masterReceiveCallback, uint8_t maxSlaveResponseSize, int maxComunications = -1);
 
-    void setMaster(bool isMaster);
+    void setMaster(bool master);
 
     uint8_t getConnectedCount();
 
@@ -116,8 +116,15 @@ public:
     void setMasterGotNewConnectionCallback(MasterGotNewConnectionCallback masterGotNewConnectionCallback);
     void setSlaveDisconnectedCallback(SlaveDisconnectedCallback slaveDisconnectedCallback);
 
+    bool isMaster();
+
+    bool isMasterConnected();
+
+    Connection* getConnectionByAddress(uint8_t address);
+    Connection* getConnectionByIndex(uint8_t index);
+
 private:
-    bool isMaster;
+    bool master;
     TimeForSize timeForSizeCallback;
     Frame writeFrame;
     size_t writeFrameSize;
@@ -166,6 +173,7 @@ private:
     uint8_t generateNewAddress();
 
     uint8_t frameTypeToComunicationIndex(uint8_t frameType);
+    uint8_t comunicationIndexToFrameType(uint8_t comunicationIndex);
 
     void removeComunication(uint8_t index);
 

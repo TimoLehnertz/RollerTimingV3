@@ -23,7 +23,7 @@
 #include <definitions.h>
 #include <SPIFFSLogic.h>
 
-SPIFFSLogic SpiffsLogic = SPIFFSLogic();
+SPIFFSLogic spiffsLogic = SPIFFSLogic();
 
 uint32_t timeForSize(uint8_t size);
 MasterSlave masterSlave(false, timeForSize);
@@ -41,8 +41,6 @@ RotaryEncoder Rotary(&RotaryChanged, PIN_ROTARY_DT, PIN_ROTARY_CLK, PIN_ROTARY_S
 
 CRGB leds[NUM_LEDS_DISPLAY];
 LedMatrix matrix;
-
-ICACHE_RAM_ATTR void setFlag(void);
 
 volatile bool receivedFlag = false;
 // bool sendingFlag = false;
@@ -71,6 +69,8 @@ float vBat = 3.8;
 MenuItem* menuSetupItems[4];
 NumberField* distFromStartInput;
 NumberField* minDelayInput;
+NumberField* displayTimeInput;
+NumberField* displayBrightnessInput;
 CheckBox* isDisplayCheckbox;
 CheckBox* isMasterCB;
 
@@ -81,6 +81,7 @@ NumberField* displayCurrentAfterScaleText;
 NumberField* vBatMeasured;
 NumberField* vBatText;
 NumberField* hzText;
+NumberField* uidText;
 
 Menu* connectionsMenuMaster;
 Menu* connectionsMenuSlave;
@@ -88,7 +89,7 @@ Menu* connectionsMenuSlave;
 FrameSection* connectionsFrameSection;
 
 volatile uint32_t triggerCount = 0;
-volatile uint64_t lastTriggerUs;
+volatile uint32_t lastTriggerMs;
 
 void msOverlay(ScreenDisplay *display, DisplayUiState* state);
 OverlayCallback overlayCallbacks[] = { msOverlay };
@@ -97,6 +98,27 @@ size_t overlaysCount = 1;
 /**
  * Some global functions
  */
+ICACHE_RAM_ATTR void setFlag(void);
+
 bool isDisplay() {
   return isDisplayCheckbox->isChecked();
 }
+
+bool isTriggered() {
+  return !digitalRead(PIN_LASER);
+}
+
+void masterTrigger(uint32_t masterTimeMs, uint16_t uid) {
+  spiffsLogic.addTrigger(masterTimeMs, uid);
+}
+
+/**
+ * Some classes
+ */
+#ifndef TRIGGER_DEFINED
+#define TRIGGER_DEFINED
+struct Trigger {
+  uint32_t timeMs; // overflows after 50 days
+  uint16_t macAddress;
+};
+#endif

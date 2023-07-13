@@ -12,6 +12,7 @@
 #include <Arduino.h>
 #include <definitions.h>
 #include <Storage.h>
+#include <WiFiLogic.h>
 
 void beginLEDDisplay();
 
@@ -24,17 +25,24 @@ uint16_t pixelConverter(uint16_t x, uint16_t y) {
   return (8 * 31) - x * 8 + (x % 2 == 0 ? (7 - y) : y);
 }
 
+void isMasterChanged();
+
 void isDisplayChanged() {
   beginLEDDisplay();
   writePreferences();
   isMasterCB->setChecked(isDisplayCheckbox->isChecked());
+  isMasterChanged();
 }
 
 void isMasterChanged() {
+  Serial.println("isMasterChanged");
   masterSlave.setMaster(isMasterCB->isChecked());
+  // distFromStartInput->setHidden(isMasterCB->isChecked());
   if(isMasterCB->isChecked()) {
     connectionsFrameSection->setMenu(connectionsMenuMaster);
+    spiffsLogic.startNewSession();
   } else {
+    spiffsLogic.endSession();
     connectionsFrameSection->setMenu(connectionsMenuSlave);
   }
 }
@@ -44,21 +52,26 @@ void msOverlay(ScreenDisplay *display, DisplayUiState* state) {
   display->fillRect(0, 0, 128, 13);
   display->setColor(WHITE);
   display->fillRect(7, 13, 114, 1);
-  char strBat[12];
-  char strLaser[10];
-  // sprintf(strBat, "%i%%", int(round(batPercent)));
-  sprintf(strBat, "%i%%", int(round(batPercent / 10.0) * 10.0));
-  sprintf(strLaser, "%i-%i", triggerCount, digitalRead(PIN_LASER));
+
+  char strConnection[20];
+  if(masterSlave.isMaster()) {
+    size_t connections = masterSlave.getConnectedCount();
+    if(connections == 0) {
+      sprintf(strConnection, "No connections");
+    } else {
+      sprintf(strConnection, "%i connections (%i%)", connections, masterSlave.getConnectionByIndex(0)->lq);
+    }
+  } else {
+    if(masterSlave.isMasterConnected()) {
+      sprintf(strConnection, "Connected");
+    } else {
+      sprintf(strConnection, "No connections");
+    }
+  }
 
   display->setFont(ArialMT_Plain_10);
-  display->setTextAlignment(TEXT_ALIGN_RIGHT);
-  // if(vBat > 4.25) {
-  //   display->drawString(128, 0, String("USB"));
-  // } else if(millis() > 0) { // wait for bat readings to converge
-    display->drawString(128, 0, String(strBat));
-  // }
   display->setTextAlignment(TEXT_ALIGN_LEFT);
-  display->drawString(0, 0, String(strLaser));
+  display->drawString(0, 0, String(strConnection));
 }
 
 void drawFrameWiFi(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
@@ -106,7 +119,10 @@ void beginLCDDisplay() {
   vBatText->setEditable(false);
   hzText = new NumberField("Loop", "Hz", 1, 0, 100000000, 0);
   hzText->setEditable(false);
-
+  uidText = new NumberField("Uid", "", 1, 0, UINT16_MAX, 0);
+  uidText->setEditable(false);
+  displayBrightnessInput = new NumberField("Brightness", "%", 1, 10, 100, 0, 30, writePreferences);
+  displayTimeInput = new NumberField("Lap dispplay", "s", 0.5, 0.5, 100, 1, 3, writePreferences);
   // All menu inits
   Menu* systemSettingsMenu = new Menu();
   Menu* setupMenu = new Menu();
@@ -117,8 +133,10 @@ void beginLCDDisplay() {
   Menu* viewerMenu = new Menu();
   Menu* wifiMenu = new Menu();
 
+  setupMenu->addItem(displayTimeInput);
   setupMenu->addItem(distFromStartInput);
   setupMenu->addItem(minDelayInput);
+  setupMenu->addItem(displayBrightnessInput);
   setupMenu->addItem(new SubMenu("System settings", systemSettingsMenu));
 
     systemSettingsMenu->addItem(new TextItem("Advanced settings"));
@@ -131,6 +149,7 @@ void beginLCDDisplay() {
       debugMenu->addItem(vBatMeasured);
       debugMenu->addItem(vBatText);
       debugMenu->addItem(hzText);
+      debugMenu->addItem(uidText);
 
     systemSettingsMenu->addItem(new SubMenu("Factory reset", menuFactoryReset));
 
@@ -181,18 +200,53 @@ uint32_t lastLEDUpdate = 0;
 void handleLEDS() {
   if(millis() - lastLEDUpdate < 1000.0 / 30.0) return;
   lastLEDUpdate = millis();
-
+  uidText->setValue(getUid());
+  FastLED.clear();
   if(isDisplay()) {
-    FastLED.clear();
-    char str[10];
-    sprintf(str, "%.3f", millis() / 1000.0);
-    matrix.printTime(0,0, millis(), true);
+    TrainingsSession* session = spiffsLogic.getCurrentSession();
+    size_t laps = 0;
+    if(session && session->getTriggerCount() > 0) {
+      laps = session->getLapsCount();
+      if(session->getTriggerCount() == 1 || session->getTimeSinceLastTrigger() > displayTimeInput->getValue() * 1000) {
+        matrix.printTime(9, 0, session->getTimeSinceLastTrigger(), true);
+      } else {
+        matrix.printTime(9, 0, session->getLastLapMs(), false);
+      }
+    } else {
+      matrix.printTime(9, 0, 0, false);
+    }
+    char lapsStr[2];
+    // uint8_t stripes = (laps % 40) / 10;
+    laps = laps % 100;
+    if(laps < 10) {
+      sprintf(lapsStr, "0%i", laps);
+    } else {
+      sprintf(lapsStr, "%i", laps);
+    }
+    int x = 0;
+    if(lapsStr[0] != '0') {
+      x = matrix.print(lapsStr[0], x, 3, CRGB::Yellow, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
+    }
+    matrix.print(lapsStr[1], x, 3, CRGB::White, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
+    // for (size_t i = 0; i < stripes; i++) {
+    //   matrix.line(i, 0, i, 3, CRGB::Yellow);
+    // }
+    
+  } else {
+    for (int i = 0; i < min(getLEDCount(), millis() / 100.0 - 7); i++) {
+      // Serial.println(analogRead(PIN_LASER));
+      if(isTriggered() && millis() > 2000) {
+        leds[i] = CRGB::White;
+      } else {
+        leds[i] = CRGB(30,0,20);
+      }
+    }
   }
 
   // handle brightness
   float displayCurrent = predictLEDCurrentDraw();
   displayCurrentText->setValue(displayCurrent);
-  int displayBrightness = MAX_CONTINUOUS_AMPS / displayCurrent * 255;
+  int displayBrightness = MAX_CONTINUOUS_AMPS / displayCurrent * (displayBrightnessInput->getValue() / 100.0 * 255.0);
   if(displayBrightness > 255) displayBrightness = 255;
   displayCurrentAfterScaleText->setValue(displayCurrent * (displayBrightness / 255.0));
   FastLED.setBrightness(displayBrightness);

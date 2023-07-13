@@ -34,8 +34,8 @@ void printFrame(Frame f, uint8_t size) {
     Serial.println();
 }
 
-MasterSlave::MasterSlave(bool isMaster, TimeForSize timeForSizeCallback) {
-    this->isMaster = isMaster;
+MasterSlave::MasterSlave(bool master, TimeForSize timeForSizeCallback) {
+    this->master = master;
     this->timeForSizeCallback = timeForSizeCallback;
     this->readFrame = Frame();
     this->writeFrame = Frame();
@@ -46,13 +46,13 @@ MasterSlave::MasterSlave(bool isMaster, TimeForSize timeForSizeCallback) {
     this->connectionSize = 0;
     this->currentConnection = 0;
     this->nextMasterSendUs = 0;
-    this->address = isMaster ? 0 : -1;
+    this->address = master ? 0 : -1;
     this->masterConnected = false;
     this->lastMasterFrame = 0;
     this->sendTimeUs = 0;
     this->currentComunicationReceived = false;
     this->comunications[0] = Comunication(10, nullptr, nullptr, nullptr, 3, FRAME_TYPE_MASTER_HEY_PLEASE_CONNECT_TO_ME, -1);
-    this->comunications[1] = Comunication(0, nullptr, nullptr, nullptr, 3, FRAME_TYPE_MASTER_ARE_YOU_THERE, -1);
+    this->comunications[1] = Comunication(10, nullptr, nullptr, nullptr, 3, FRAME_TYPE_MASTER_ARE_YOU_THERE, -1);
     this->comunicationsSize = 2;
     this->ConnectionRequestcomunication = &this->comunications[0];
     this->lastLQCalcMs = 0;
@@ -78,6 +78,28 @@ void MasterSlave::setSlaveDisconnectedCallback(SlaveDisconnectedCallback slaveDi
     this->slaveDisconnectedCallback = slaveDisconnectedCallback;
 }
 
+bool MasterSlave::isMaster() {
+    return master;
+}
+
+bool MasterSlave::isMasterConnected() {
+    return masterConnected;
+}
+
+Connection* MasterSlave::getConnectionByAddress(uint8_t address) {
+    for (size_t i = 0; i < connectionSize; i++) {
+        if(connections[i].address == address) {
+            return &connections[i];
+        }
+    }
+    return nullptr;
+}
+
+Connection* MasterSlave::getConnectionByIndex(uint8_t index) {
+    if(index >= connectionSize) return nullptr;
+    return &connections[index];
+}
+
 bool MasterSlave::begin() {
     // if(comunicationsSize == 0) return false;
     currentComunication = 0;
@@ -91,7 +113,7 @@ void MasterSlave::handle() {
         calculateLQ();
         lastLQCalcMs = millis();
     }
-    if(isMaster) {
+    if(master) {
         if(micros() >= nextMasterSendUs) {
             if(!currentComunicationReceived && currentConnection < connectionSize) connections[currentConnection].timeouts++;
             nextMasterComunication();
@@ -207,7 +229,7 @@ void MasterSlave::sendMaserComunication(uint8_t comunication, uint8_t connection
             break;
         }
         default: {// user defined comunication
-            uint8_t size;
+            uint8_t size = 0;
             comunications[comunication].masterCallback(connections[connection].address, (uint8_t*) &writeFrame.data, &size);
             writeFrameSize = size + FRAME_HEADER_SIZE;
             break;
@@ -229,7 +251,11 @@ uint64_t MasterSlave::calculateMaxTimeForFrameType(uint8_t frameType) {
 
 void MasterSlave::read(uint8_t* data, size_t size) {
     readFrame = *((Frame*) data);
-    if(isMaster) {
+    if(size < FRAME_HEADER_SIZE) {
+        Serial.println("Received incomplete header frame");
+        return;
+    }
+    if(master) {
         if(readFrame.address == ADDRESS_MASTER) {
             // Serial.print("<<");
             // printFrame(readFrame, size);
@@ -244,27 +270,21 @@ void MasterSlave::read(uint8_t* data, size_t size) {
     }
 }
 
-void MasterSlave::setMaster(bool isMaster) {
-    if(isMaster == this->isMaster) return;
+void MasterSlave::setMaster(bool master) {
+    if(master == this->master) return;
     connectionSize = 0;
     masterConnected = false;
     address = -1;
     sendTimeUs = 0;
-    if(isMaster) {
+    if(master) {
         Serial.println("I am now master");
     } else {
         Serial.println("I am now slave");
     }
-    this->isMaster = isMaster;
+    this->master = master;
 }
 
 void MasterSlave::processFrameAsMaster(Frame& frame, size_t size) {
-    // if(frame.frameType == FRAME_TYPE_MASTER_HEY_PLEASE_CONNECT_TO_ME) { // second master
-    //     if(getConnectedCount() < frame.data[1]) {
-    //         setMaster(false); // convert to slave
-    //         return;
-    //     }
-    // }
     if(frame.frameType == FRAME_TYPE_SLAVE_I_WANT_TO_CONNECT) { // try to establish connection
         if(generateNewAddress() != frame.data[0]) {
             Serial.println("Invalid accepted address");
@@ -285,17 +305,17 @@ void MasterSlave::processFrameAsMaster(Frame& frame, size_t size) {
                 break; // do nothing only record received time
             }
             default: {
-                Serial.printf("Invalid frame type%i\n", frame.frameType);
+                Serial.printf("Invalid frame type %i\n", frame.frameType);
                 break;
             }
         }
     } else { // user defined comunication
-        if(frame.frameType >= comunicationsSize) {
-            Serial.printf("Invalid frame type%i\n", frame.frameType);
+        uint8_t comunicationIndex = frameTypeToComunicationIndex(frame.frameType);
+        if(comunicationIndex >= comunicationsSize) {
+            Serial.printf("Invalid frame type %i\n", frame.frameType);
             return;
         }
-        uint8_t comunicationIndex = frameTypeToComunicationIndex(frame.frameType);
-        comunications[comunicationIndex].masterReceiveCallback(frame.data, size);
+        comunications[comunicationIndex].masterReceiveCallback(frame.data, size - FRAME_HEADER_SIZE, connections[currentConnection].address);
         comunications[comunicationIndex].maxComunications--;
         if(comunications[comunicationIndex].maxComunications == 0) {
             removeComunication(comunicationIndex);
@@ -353,7 +373,7 @@ void MasterSlave::processFrameAsSlave(Frame& frame, size_t size) {
             uint8_t responseSize = 0;
             writeFrame.address = ADDRESS_MASTER;
             writeFrame.frameType = frame.frameType;
-            comunications[comunicationIndex].slaveCallback(frame.data, size, (uint8_t*) &writeFrame.data, &responseSize);
+            comunications[comunicationIndex].slaveCallback(frame.data, size - FRAME_HEADER_SIZE, (uint8_t*) &writeFrame.data, &responseSize);
             writeFrameSize = responseSize + FRAME_HEADER_SIZE;
         }
     }
@@ -376,9 +396,13 @@ uint8_t MasterSlave::frameTypeToComunicationIndex(uint8_t frameType) {
     return frameType - FRAME_TYPE_MAX - 1;
 }
 
+uint8_t MasterSlave::comunicationIndexToFrameType(uint8_t comunicationIndex) {
+    return comunicationIndex + FRAME_TYPE_MAX + 1;
+}
+
 uint8_t MasterSlave::addComunication(uint8_t priority, MasterCallback masterCallback, SlaveCallback slaveCallback, MasterReceiveCallback masterReceiveCallback, uint8_t maxSlaveResponseSize, int maxComunications) {
     if(comunicationsSize == MAX_COMUNICATION_SIZE) return 0;
-    uint8_t frameType = comunicationsSize + 1 + FRAME_TYPE_MAX;
+    uint8_t frameType = comunicationIndexToFrameType(comunicationsSize);
     comunications[comunicationsSize] = Comunication(priority, masterCallback, slaveCallback, masterReceiveCallback, maxSlaveResponseSize, frameType, maxComunications);
     comunicationsSize++;
     return comunicationsSize - 1;

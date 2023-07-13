@@ -11,8 +11,8 @@ void beginRadio() {
 
   Serial.print(F("[SX1262] Initializing ... "));
   // float freq = 434.0, float bw = 125.0, uint8_t sf = 9, uint8_t cr = 7, uint8_t syncWord = RADIOLIB_SX126X_SYNC_WORD_PRIVATE, int8_t power = 10
-  int error = radio.beginFSK(928);
-  radio.setOutputPower(10); // 10 => 10mW, max: 22 => 158mW
+  int error = radio.beginFSK(868);
+  radio.setOutputPower(22); // 10 => 10mW, max: 22 => 158mW
   if (error == RADIOLIB_ERR_NONE) {
     Serial.println(F("success!"));
   } else {

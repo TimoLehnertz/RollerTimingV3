@@ -107,7 +107,7 @@ protected:
 
 class TextItem : public MenuItem {
 public:
-    TextItem(const char* text) : MenuItem(false, 10) {
+    TextItem(const char* text, bool selectable = false) : MenuItem(selectable, 10) {
         this->text = text;
     }
 
@@ -208,7 +208,6 @@ public:
 
     void setChecked(bool checked) {
         this->checked = checked;
-        change();
     }
 
     void removeFocus() {
