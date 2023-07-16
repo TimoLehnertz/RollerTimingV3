@@ -60,6 +60,7 @@ MasterSlave::MasterSlave(bool master, TimeForSize timeForSizeCallback) {
     this->slaveLostMasterCallback = nullptr;
     this->masterGotNewConnectionCallback = nullptr;
     this->slaveDisconnectedCallback = nullptr;
+    this->comunicationDelay = 0;
 }
 
 void MasterSlave::setSlaveFoundMasterCallback(SlaveFoundMasterCallback slaveFoundMasterCallback) {
@@ -109,7 +110,7 @@ bool MasterSlave::begin() {
 
 void MasterSlave::handle() {
     if(!running) return;
-    if(millis() - lastLQCalcMs > 1000) {
+    if(millis() - lastLQCalcMs > 2000) {
         calculateLQ();
         lastLQCalcMs = millis();
     }
@@ -235,8 +236,7 @@ void MasterSlave::sendMaserComunication(uint8_t comunication, uint8_t connection
             break;
         }
     }
-
-    nextMasterSendUs = micros() + calculateMaxTimeForFrameType(comunications[currentComunication].frameType);
+    nextMasterSendUs = micros() + calculateMaxTimeForFrameType(comunications[currentComunication].frameType) + comunicationDelay;
 }
 
 uint64_t MasterSlave::calculateMaxTimeForFrameType(uint8_t frameType) {
@@ -324,7 +324,7 @@ void MasterSlave::processFrameAsMaster(Frame& frame, size_t size) {
     if(currentConnection < connectionSize) {
         connections[currentConnection].receivedPackets++;
     }
-    nextMasterSendUs = micros() + PAUSE_TILL_RESPONSE_US;
+    nextMasterSendUs = micros() + PAUSE_TILL_RESPONSE_US + comunicationDelay;
 }
 
 void MasterSlave::removeComunication(uint8_t index) {

@@ -120,6 +120,10 @@ public:
 
     bool isMasterConnected();
 
+    void setComunicationDelay(uint32_t comunicationDelayMs) {
+        this->comunicationDelay = comunicationDelayMs;
+    }
+
     Connection* getConnectionByAddress(uint8_t address);
     Connection* getConnectionByIndex(uint8_t index);
 
@@ -131,6 +135,8 @@ private:
     Frame readFrame;
     size_t readFrameSize;
     uint64_t nextMasterSendUs;
+
+    uint32_t comunicationDelay;
 
     Comunication comunications[MAX_COMUNICATION_SIZE];
     size_t comunicationsSize;

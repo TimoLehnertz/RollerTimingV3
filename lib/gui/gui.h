@@ -6,6 +6,8 @@
 #define MAX_ENTER_TIME_MS 1000
 #define MAX_MENU_ITEM_COUT 10
 
+#define MAX_SELECT_OPTIONS 10
+
 typedef void (*ChangeListener)();
 
 enum GUIInputEvent {
@@ -56,10 +58,11 @@ public:
     virtual void removeFocus() = 0;
     
     void render(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
+        if(hiding) return;
         display->setTextAlignment(TEXT_ALIGN_LEFT);
-        display->setFont(ArialMT_Plain_16);
+        display->setFont(ArialMT_Plain_10);
         if(highlighted) {
-            display->drawString(x, y, ">");
+            display->drawString(x + (height - 10) / 2, y, ">");
         }
         renderComponent(display, state, x, y);
     }
@@ -71,7 +74,7 @@ public:
     }
 
     int getHeight() {
-        return height;
+        return height * (!hiding);
     }
 
     bool isHighlighted() {
@@ -82,7 +85,11 @@ public:
         this->highlighted = highlighted;
     }
 
-    bool isHiding() {
+    void setHidden(bool hidden) {
+        this->hiding = hidden;
+    }
+
+    bool isHidden() {
         return hiding;
     }
 
@@ -150,7 +157,7 @@ public:
     void renderComponent(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) override {
         display->setTextAlignment(TEXT_ALIGN_CENTER);
         display->setFont(ArialMT_Plain_10);
-        display->drawString(x + 70, y + 3, text);
+        display->drawString(x + 16 + 50, y + 2, text);
         display->drawRect(x + 16, y, 100, 16);
     }
 
@@ -173,22 +180,29 @@ private:
 
 class CheckBox : public MenuItem {
 public:
-    CheckBox(const char* text, bool checked = false, ChangeListener actionListener = nullptr) : MenuItem(true, 16) {
+    CheckBox(const char* text, bool round, bool checked = false, ChangeListener actionListener = nullptr) : MenuItem(true, 10) {
         this->text = text;
         this->checked = checked;
+        this->round = round;
         this->changeListener = actionListener;
     }
 
     void renderComponent(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) override {
         display->setTextAlignment(TEXT_ALIGN_LEFT);
         display->setFont(ArialMT_Plain_10);
-        display->drawString(x + 14 + 16 + 2, y + 3, text);
-        // display->drawRect(x + 14, y, 16, 16);
-        display->drawCircle(x + 14 + 8, y + 8 , 8);
-        if(checked) {
-            // display->drawLine(x + 14 + 2, y + 5, x + 5, y + 14);
-            // display->drawLine(x + 14 + 5, y + 13, x + 14, y + 2);
-            display->fillCircle(x + 14 + 8, y + 8 , 5);
+        display->drawString(x + 14 + 10, y + 0, text);
+        if(round) {
+            if(checked) {
+                display->fillCircle(x + 12 + 4, y + 5 , 5);
+            } else {
+                display->drawCircle(x + 12 + 4, y + 5 , 5);
+            }
+        } else {
+            if(checked) {
+                display->fillRect(x + 12 + 1, y + 2, 8, 8);
+            } else {
+                display->drawRect(x + 12, y + 1, 10, 10);
+            }
         }
     }
 
@@ -217,6 +231,7 @@ public:
 private:
     const char* text;
     bool checked;
+    bool round;
 };
 
 class NumberField : public MenuItem {
@@ -304,7 +319,7 @@ private:
 
 class Menu {
 public:
-    Menu();
+    Menu(const char* backBtnText = "Back");
 
     void render(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y);
 
@@ -321,6 +336,8 @@ public:
     void focus();
 
     void addItem(MenuItem* item);
+
+    void removeItem(MenuItem* item);
 
 private:
     Button backBtn;
@@ -341,6 +358,12 @@ private:
 
 class SubMenu : public MenuItem {
 public:
+    SubMenu(const char* text) : MenuItem(true, 10) {
+        this->text = text;
+        this->subMenu = nullptr;
+        this->opened = false;
+    }
+
     SubMenu(const char* text, Menu* subMenu) : MenuItem(true, 10) {
         this->text = text;
         this->subMenu = subMenu;
@@ -351,7 +374,7 @@ public:
         display->setTextAlignment(TEXT_ALIGN_LEFT);
         display->setFont(ArialMT_Plain_10);
         display->drawString(x + 14, y, text);
-        if(opened) {
+        if(opened && subMenu) {
             subMenu->render(display, state, x + 128, y);
         }
     }
@@ -378,10 +401,87 @@ public:
         opened = false;
     }
 
+    void setSubMenu(Menu* subMenu) {
+        this->subMenu = subMenu;
+    }
+
 private:
     const char* text;
     Menu* subMenu;
     bool opened;
+};
+
+class Select : public SubMenu {
+public:
+    Select(const char* name, ChangeListener changeListener = nullptr) : SubMenu(name) {
+        this->changeListener = changeListener;
+        this->checkboxesSize = 0;
+        this->value = 0;
+        this->menu = new Menu();
+        menu->addItem(new TextItem(name));
+        setSubMenu(menu);
+    }
+
+    ~Select() {
+        delete this->menu;
+    }
+    
+    /**
+     * @param name will be displayed as option inside the select
+     * @param value will be displayed if scolling by should be a short hand for name
+    */
+    void addOption(const char* name, const char* value) {
+        if(checkboxesSize >= MAX_SELECT_OPTIONS) return;
+        CheckBox* checkbox = new CheckBox(name, true, checkboxesSize == 0); // check first checkbox
+        values[checkboxesSize] = value;
+        checkboxes[checkboxesSize] = checkbox;
+        checkboxesSize++;
+        menu->addItem(checkbox);
+    }
+
+    void setValue(uint8_t value) {
+        if(value >= checkboxesSize) return;
+        for (size_t i = 0; i < checkboxesSize; i++) {
+            checkboxes[i]->setChecked(false);
+        }
+        checkboxes[value]->setChecked(true); 
+    }
+
+    uint8_t getValue() {
+        return value;
+    }
+
+    void renderComponent(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) override {
+        SubMenu::renderComponent(display, state, x, y);
+        if(checkboxesSize == 0) return;
+        display->setTextAlignment(TEXT_ALIGN_RIGHT);
+        display->setFont(ArialMT_Plain_10);
+        display->drawString(x + 128 - 2, y, values[value]);
+    }
+
+    bool handleEvent(GUIProcessedEvent event) {
+        bool finished = SubMenu::handleEvent(event);
+        for (size_t i = 0; i < checkboxesSize; i++) { // find the first checkbox that is not the previous selected one
+            if(i == value) continue;
+            if(checkboxes[i]->isChecked()) {
+                value = i;
+                setValue(i); // uncheck all others
+                removeFocus(); // close submenu
+                change(); // trigger change listener
+                return true; // give back focus
+            }
+        }
+        // fallback return to last know state
+        setValue(value);
+        return finished;
+    }
+
+private:
+    Menu* menu;
+    CheckBox* checkboxes[MAX_SELECT_OPTIONS];
+    const char* values[MAX_SELECT_OPTIONS];
+    uint8_t checkboxesSize;
+    uint8_t value;
 };
 
 class UIManager;

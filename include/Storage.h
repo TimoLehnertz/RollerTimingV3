@@ -13,7 +13,7 @@
 #include <Preferences.h>
 #include <Global.h>
 
-#define STORAGE_CHECK 12345
+#define STORAGE_CHECK 1234
 
 Preferences preferences;
 
@@ -24,28 +24,17 @@ void writePreferences() {
   preferences.putDouble("isDisplay", isDisplay());
   preferences.putDouble("brightness", displayBrightnessInput->getValue());
   preferences.putDouble("dispLapTime", displayTimeInput->getValue());
-
-  Serial.printf("startDist: %f\n", preferences.getDouble("startDist"));
-  Serial.printf("minDelay: %f\n", preferences.getDouble("minDelay"));
-  Serial.printf("isDisplay: %f\n", preferences.getDouble("isDisplay"));
-  Serial.printf("brightness: %f\n", preferences.getDouble("brightness"));
-  Serial.printf("dispLapTime: %f\n", preferences.getDouble("dispLapTime"));
+  preferences.putBool("isMaster", isMasterCB->isChecked());
 }
 
 void readPreferences() {
   Serial.println("Reading from preferences");
-
   distFromStartInput->setValue(preferences.getDouble("startDist"));
   minDelayInput->setValue(preferences.getDouble("minDelay"));
   isDisplayCheckbox->setChecked(preferences.getDouble("isDisplay"));
   displayBrightnessInput->setValue(preferences.getDouble("brightness"));
   displayTimeInput->setValue(preferences.getDouble("dispLapTime"));
-
-  Serial.printf("startDist: %f\n", preferences.getDouble("startDist"));
-  Serial.printf("minDelay: %f\n", preferences.getDouble("minDelay"));
-  Serial.printf("isDisplay: %f\n", preferences.getDouble("isDisplay"));
-  Serial.printf("brightness: %f\n", preferences.getDouble("brightness"));
-  Serial.printf("dispLapTime: %f\n", preferences.getDouble("dispLapTime"));
+  isMasterCB->setChecked(preferences.getBool("isMaster"));
 }
 
 void resetAllSettings() {
@@ -54,6 +43,7 @@ void resetAllSettings() {
   isDisplayCheckbox->setChecked(false);
   displayBrightnessInput->setValue(30);
   displayTimeInput->setValue(3);
+  isMasterCB->setChecked(false);
 }
 
 void factoryReset() {

@@ -73,6 +73,7 @@ NumberField* displayTimeInput;
 NumberField* displayBrightnessInput;
 CheckBox* isDisplayCheckbox;
 CheckBox* isMasterCB;
+Select* powerSavingSelect;
 
 // Debug items
 MenuItem* debugMenuItems[5];

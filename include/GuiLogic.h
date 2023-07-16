@@ -14,6 +14,13 @@
 #include <Storage.h>
 #include <WiFiLogic.h>
 
+#define POWER_SAVING_MODE_OFF 0
+#define POWER_SAVING_MODE_MEDIUM 1
+#define POWER_SAVING_MODE_HIGH 2
+
+TextItem* connectionItems[MAX_CONNECTIONS];
+char* connectionItemsTexts[MAX_CONNECTIONS];
+
 void beginLEDDisplay();
 
 int getLEDCount() {
@@ -28,10 +35,33 @@ uint16_t pixelConverter(uint16_t x, uint16_t y) {
 void isMasterChanged();
 
 void isDisplayChanged() {
-  beginLEDDisplay();
-  writePreferences();
   isMasterCB->setChecked(isDisplayCheckbox->isChecked());
   isMasterChanged();
+  writePreferences();
+}
+
+void powerSavingChanged() {
+  switch(powerSavingSelect->getValue()) {
+    case POWER_SAVING_MODE_OFF: {
+      masterSlave.setComunicationDelay(0);
+      radio.setOutputPower(22); // full power (150mw)
+      break;
+    }
+    case POWER_SAVING_MODE_MEDIUM: {
+      masterSlave.setComunicationDelay(100);
+      radio.setOutputPower(19); // 80mw
+      break;
+    }
+    case POWER_SAVING_MODE_HIGH: {
+      masterSlave.setComunicationDelay(200);
+      radio.setOutputPower(9); // 8 mw
+      break;
+    }
+  }
+}
+
+void simpleInputChanged() {
+  writePreferences();
 }
 
 void isMasterChanged() {
@@ -45,6 +75,29 @@ void isMasterChanged() {
     spiffsLogic.endSession();
     connectionsFrameSection->setMenu(connectionsMenuSlave);
   }
+  writePreferences();
+}
+
+void guiSetConnection(uint8_t address, int meters, uint8_t lq) {
+  if(address >= MAX_CONNECTIONS) return;
+  // return;
+  connectionItemsTexts[address] = new char[40];
+  if(meters >= 0) {
+    sprintf(connectionItemsTexts[address], "#%i at %im (Link quality %i%)", address, meters, lq);
+  } else {
+    sprintf(connectionItemsTexts[address], "#%i (Link quality %i%)", address, lq);
+  }
+  if(connectionItems[address] == nullptr) {
+    // connectionItems[address] = new TextItem(connectionItemsTexts[address], true);
+    // connectionsMenuMaster->addItem(connectionItems[address]);
+  }
+}
+
+void guiRemoveConnection(uint8_t address) {
+  if(address >= MAX_CONNECTIONS) return;
+  connectionsMenuMaster->removeItem(connectionItems[address]);
+  delete connectionItems[address];
+  delete connectionItemsTexts[address];
 }
 
 void msOverlay(ScreenDisplay *display, DisplayUiState* state) {
@@ -104,10 +157,10 @@ void drawConnections(ScreenDisplay *display, DisplayUiState* state, int16_t x, i
 }
 
 void beginLCDDisplay() {
-  distFromStartInput = new NumberField("Dist. from start", "m", 1, 0, 256, 1, 0, writePreferences);
-  minDelayInput = new NumberField("Min. delay", "s", 0.1, 0.5, 1000, 1, 0, writePreferences);
-  isDisplayCheckbox = new CheckBox("Is display", false, isDisplayChanged);
-  isMasterCB = new CheckBox("Is master", false, isMasterChanged);
+  distFromStartInput = new NumberField("Dist. from start", "m", 1, 0, 256, 1, 0, simpleInputChanged);
+  minDelayInput = new NumberField("Min. delay", "s", 0.1, 0.5, 1000, 1, 0, simpleInputChanged);
+  isDisplayCheckbox = new CheckBox("Is display", false, false, isDisplayChanged);
+  isMasterCB = new CheckBox("Is master", false, false, isMasterChanged);
 
   displayCurrentText = new NumberField("Disp.", "A", 0.01, 0, 100, 2);
   displayCurrentText->setEditable(false);
@@ -121,13 +174,18 @@ void beginLCDDisplay() {
   hzText->setEditable(false);
   uidText = new NumberField("Uid", "", 1, 0, UINT16_MAX, 0);
   uidText->setEditable(false);
-  displayBrightnessInput = new NumberField("Brightness", "%", 1, 10, 100, 0, 30, writePreferences);
-  displayTimeInput = new NumberField("Lap dispplay", "s", 0.5, 0.5, 100, 1, 3, writePreferences);
+  displayBrightnessInput = new NumberField("Brightness", "%", 5, 5, 100, 0, 30, simpleInputChanged);
+  displayTimeInput = new NumberField("Lap dispplay", "s", 0.5, 0.5, 100, 1, 3, simpleInputChanged);
+  powerSavingSelect = new Select("Power saving", powerSavingChanged);
+  powerSavingSelect->addOption("Off", "Off");
+  powerSavingSelect->addOption("Medium", "Medium");
+  powerSavingSelect->addOption("Energy saver", "High");
+
   // All menu inits
   Menu* systemSettingsMenu = new Menu();
   Menu* setupMenu = new Menu();
   Menu* debugMenu = new Menu();
-  Menu* menuFactoryReset = new Menu();
+  Menu* menuFactoryReset = new Menu("No");
   connectionsMenuMaster = new Menu();
   connectionsMenuSlave = new Menu();
   Menu* viewerMenu = new Menu();
@@ -140,6 +198,7 @@ void beginLCDDisplay() {
   setupMenu->addItem(new SubMenu("System settings", systemSettingsMenu));
 
     systemSettingsMenu->addItem(new TextItem("Advanced settings"));
+    systemSettingsMenu->addItem(powerSavingSelect);
     systemSettingsMenu->addItem(isDisplayCheckbox);
     systemSettingsMenu->addItem(isMasterCB);
     systemSettingsMenu->addItem(new SubMenu("Debug", debugMenu));
@@ -169,17 +228,16 @@ void beginLCDDisplay() {
   connectionsFrameSection = &frameSections[1];
 
   uiManager.begin(overlayCallbacks, overlaysCount, frameSections, 4);
+
+  for (size_t i = 0; i < MAX_CONNECTIONS; i++) {
+    connectionItems[i] = nullptr;
+  }
 }
 
 void beginLEDDisplay() {
   FastLED.clearData();
-  if(isDisplay()) {
-    FastLED.addLeds<NEOPIXEL, PIN_WS2812b>(leds, NUM_LEDS_DISPLAY);
-    matrix = LedMatrix(leds, NUM_LEDS_DISPLAY, pixelConverter);
-  } else {
-    FastLED.addLeds<NEOPIXEL, PIN_WS2812b>(leds, NUM_LEDS_LASER);
-    matrix = LedMatrix();
-  }
+  FastLED.addLeds<NEOPIXEL, PIN_WS2812b>(leds, NUM_LEDS_DISPLAY);
+  matrix = LedMatrix(leds, NUM_LEDS_DISPLAY, pixelConverter);
 }
 
 /**

@@ -5,7 +5,7 @@ void frameDelegator(ScreenDisplay *display, DisplayUiState* state, int16_t x, in
     UIManager::frameSections[state->currentRendering].render(display, state, x, y);
 }
 
-Menu::Menu() {
+Menu::Menu(const char* backBtnText) {
     this->menuItemsCount = 0;
     this->activeItem = 0;
     this->x = 0;
@@ -16,7 +16,7 @@ Menu::Menu() {
     this->gap = 5;
     this->activeItem = 0;
     this->itemFocused = false;
-    this->backBtn = Button("Back");
+    this->backBtn = Button(backBtnText);
 }
 
 void Menu::render(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
@@ -69,7 +69,7 @@ bool Menu::handleEvent(GUIProcessedEvent event) {
             bool willLooseFocus = getFocusedItem()->focus();
             if(!willLooseFocus) {
                 itemFocused = true;
-                if(getFocusedItem()->isHiding()) {
+                if(getFocusedItem()->isHidden()) {
                     openSubMenu();
                 }
             }
@@ -79,7 +79,8 @@ bool Menu::handleEvent(GUIProcessedEvent event) {
             getFocusedItem()->setHighlighted(false);
             for (size_t i = 0; i < menuItemsCount; i++) {
                 activeItem++;
-                if(activeItem > menuItemsCount) activeItem = menuItemsCount;
+                if(getItem(activeItem)->isHidden()) continue;
+                if(activeItem > menuItemsCount) activeItem = menuItemsCount; // back button
                 if(getFocusedItem()->isSelectable()) break;
             }
             scrollToItem(activeItem);
@@ -120,7 +121,7 @@ void Menu::openSubMenu() {
 void Menu::scrollToItem(size_t index) {
     int16_t itemTop = 0;
     for (size_t i = 0; i < index; i++) {
-        itemTop += getItem(index)->getHeight() + gap;
+        itemTop += getItem(i)->getHeight() + gap; // hidden items have height of 0
     }
     targetY = itemTop - getItem(index)->getHeight() / 2.0 - 32 + 5;
 }
@@ -143,6 +144,17 @@ void Menu::focus() {
 void Menu::addItem(MenuItem* item) {
     if(menuItemsCount >= MAX_MENU_ITEM_COUT) return;
     menuItems[menuItemsCount++] = item;
+}
+
+void Menu::removeItem(MenuItem* item) {
+    for (size_t i = 0; i < menuItemsCount; i++) {
+        if(menuItems[i] == item) {
+            for (size_t l = i; i < menuItemsCount - 1; l++) {
+                menuItems[l] = menuItems[l + i];
+            }
+            menuItemsCount--;
+        }
+    }
 }
 
 UIManager::UIManager(DisplayUi* displayUI) {

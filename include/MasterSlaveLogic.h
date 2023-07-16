@@ -13,11 +13,13 @@
 #include <LinkedList.h>
 #include <WiFiLogic.h>
 #include <Sound.h>
+#include <GuiLogic.h>
 
 #define MAX_SLAVE_TRIGGERS 256
 
 struct SlaveLaser {
     uint8_t address; // actual MasterSlave connection containing metadata
+    uint16_t meters; // actual MasterSlave connection containing metadata
     uint16_t triggerIndex; // holds the index of the last received trigger
     uint16_t uid; // number identifying the device
     bool connected;
@@ -84,6 +86,7 @@ void SlaveDisconnectedCallbackFunc(uint8_t slaveAddress) {
     if(!slaveLaser) return;
     slaveLaser->connected = false;
     playSoundLostConnection();
+    guiRemoveConnection(slaveAddress);
 }
 
 struct TriggersMsgMasterToSlave {
@@ -94,6 +97,7 @@ struct TriggersMsgMasterToSlave {
 struct TriggersMsgSlaveToMaster {
 
     uint16_t uid; // slave uid
+    uint16_t meters; // slave uid
     bool rebootedFlag;
     Trigger triggers[3]; // 0 - 3 triggers
     
@@ -127,6 +131,7 @@ void triggersSlaveDataCallback(uint8_t* data, uint8_t dataSize, uint8_t* respons
     TriggersMsgSlaveToMaster slaveToMaster;
     slaveToMaster.uid = getUid();
     slaveToMaster.rebootedFlag = false;
+    slaveToMaster.meters = distFromStartInput->getValue();
     uint8_t sendTriggers = 0;
     // Serial.printf("Master wants %i, i got %i\n", masterToSlave->triggerIndex, slaveTriggers.size());
     if(masterToSlave->slaveUid == getUid()) {
@@ -159,7 +164,7 @@ void triggersMasterReceiveCallback(uint8_t* data, uint8_t size, uint8_t slaveAdd
     TriggersMsgSlaveToMaster* slaveToMaster = (TriggersMsgSlaveToMaster*) data;
     SlaveLaser* slaveLaser = getLaserByUid(slaveToMaster->uid);
     if(!slaveLaser) {
-        slaveLaser = new SlaveLaser{ slaveAddress, 0, slaveToMaster->uid, true };
+        slaveLaser = new SlaveLaser{ slaveAddress, slaveToMaster->meters, 0, slaveToMaster->uid, true };
         addSlaveLaser(slaveLaser);
         return; // only add for now
     }
@@ -233,4 +238,14 @@ void slaveTrigger(uint32_t atMs) {
 
 void handleMasterSlaveLogic() {
     masterSlave.handle();
+    for (size_t i = 0; i < masterSlave.getConnectedCount(); i++) {
+        Connection* connection = masterSlave.getConnectionByIndex(i);
+        if(!connection) continue;
+        SlaveLaser* slaveLaser = getLaserByAddress(connection->address);
+        int meters = -1;
+        if(slaveLaser) {
+            meters = slaveLaser->address;
+        }
+        guiSetConnection(connection->address, meters, connection->lq);
+    }
 }

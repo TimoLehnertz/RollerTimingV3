@@ -51,3 +51,6 @@
 #define NUM_LEDS_LASER 4
 #define MAX_AMPS_PER_PIXEL 0.05
 #define MAX_CONTINUOUS_AMPS 0.5 // should give approx 20 - 24h of battery life on a 12Wh battery
+
+
+#define MAX_CONNECTIONS 50
