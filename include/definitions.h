@@ -1,3 +1,5 @@
+#define VERSION "Version 1.0.0"
+
 /**
  * All IO pin definitions
  */

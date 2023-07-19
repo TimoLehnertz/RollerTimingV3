@@ -255,22 +255,34 @@ void LedMatrix::timeToStr(uint32_t msTime, char* hStr, char* mStr, char* sStr, c
 }
 
 void LedMatrix::printTime(int x, int y, uint32_t ms, bool oneMsDigit) {
-  char hStr[10] = "\0";
-  char mStr[3]  = "\0";
-  char sStr[3];
-  char msStr[4];
-  x+=2;
-  timeToStr(ms, hStr, mStr, sStr, msStr, oneMsDigit);
-  if(*hStr) {
-    x = print(hStr, x - 2, y + 1, 0xFFFF00, FONT_SIZE_SMALL + MONOSPACE + 1);
-    x = print(":", x- 1, y, 0xAA0000);
-  }
-  if(*mStr) {
-    x = print(mStr, x - 2, y + 1, 0x00FFFF, FONT_SIZE_SMALL + MONOSPACE + 1);
-    x = print(":", x - 1, y, 0xAA0000);
-  }
-  x = print(sStr, x - 1, y, 0x00FF00, 1);
-  x = print(".", x- 1, y, 0xAA0000, 0);
-  x = print(msStr[0], x, y, 0xFF00FF, 1);
-  x = print(msStr + 1, x, y + 3, 0xFF00FF, FONT_SIZE_SMALL + 1);
+    char hStr[10] = "\0";
+    char mStr[3]  = "\0";
+    char sStr[3];
+    char msStr[4];
+    // x+=2;
+    timeToStr(ms, hStr, mStr, sStr, msStr, oneMsDigit);
+    if(*mStr) { // minutes
+        x = print(mStr, x - 2, y + 2, CRGB(0x3333FF), FONT_SIZE_SMALL + 1);
+        dot(x - 1, 2, CRGB(0x666666));
+        dot(x - 1, 5, CRGB(0x666666));
+        x++;
+    }
+    if(sStr[0] != '0' || *mStr) {
+        x = print(sStr[0], x, y, CRGB(0x00FF00), MONOSPACE + 1); // seconds
+    } else {
+        x += 5;
+    }
+    x = print(sStr[1], x, y, CRGB(0x00FF00), MONOSPACE); // seconds
+    dot(x, 6, CRGB(0x666666));
+    dot(x, 7, CRGB(0x666666));
+    x++;
+    dot(x, 6, CRGB(0x666666));
+    dot(x, 7, CRGB(0x666666));
+    x++;
+    x = print(msStr[0], x, y, CRGB(0xFF33FF), MONOSPACE + 1); // millis 1
+    if(msStr[1]) {
+        x = print(msStr[1], x, y, CRGB(0xFF33FF), MONOSPACE + 1); // millis 2
+        x = print(msStr[2], x, y, CRGB(0xFF33FF), MONOSPACE + 1); // millis 3
+    }
+//   x = print(msStr + 1, x, y + 3, CRGB::GreenYellow, FONT_SIZE_SMALL + 1);
 }

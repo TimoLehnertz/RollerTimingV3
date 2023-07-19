@@ -11,7 +11,7 @@
 #define MASTER_SLAVE_TIMEOUT_MS 3000
 #define PAUSE_TILL_RESPONSE_US 10000
 
-#define MAX_COMUNICATION_SIZE 100
+#define MAX_COMUNICATION_SIZE 10
 
 #define ADDRESS_MASTER 1
 #define ADDRESS_BROADCAST 0
@@ -22,7 +22,18 @@
 #define FRAME_TYPE_MASTER_HEY_PLEASE_CONNECT_TO_ME 1
 
 // [0] accepted address
+// [1] random number
+// [2] random number
+// [3] random number
+// [4] random number
 #define FRAME_TYPE_SLAVE_I_WANT_TO_CONNECT 2
+
+// [0] repeated address
+// [1] previous random number
+// [2] previous random number
+// [3] previous random number
+// [4] previous random number
+#define FRAME_TYPE_MASTER_YOU_ARE_NOW_CONNECTED 3
 
 #define FRAME_TYPE_MASTER_ARE_YOU_THERE 4
 #define FRAME_TYPE_SLAVE_YES_I_AM 5
@@ -67,13 +78,17 @@ typedef void (*SlaveDisconnectedCallback)(uint8_t slaveAddress);
 
 struct Comunication {
     Comunication() {}
-    Comunication(uint8_t priority, MasterCallback masterCallback, SlaveCallback slaveCallback, MasterReceiveCallback masterReceiveCallback, uint8_t maxSlaveResponseSize, uint8_t frameType, int maxComunications) : priority(priority), masterCallback(masterCallback), slaveCallback(slaveCallback), masterReceiveCallback(masterReceiveCallback), maxSlaveResponseSize(maxSlaveResponseSize), skippedCount(0), frameType(frameType), maxComunications(maxComunications), active(true) {}
+    Comunication(uint8_t priority, MasterCallback masterCallback, SlaveCallback slaveCallback, MasterReceiveCallback masterReceiveCallback, uint8_t maxSlaveResponseSize, uint8_t frameType, int maxComunications) : priority(priority), masterCallback(masterCallback), slaveCallback(slaveCallback), masterReceiveCallback(masterReceiveCallback), maxSlaveResponseSize(maxSlaveResponseSize), frameType(frameType), maxComunications(maxComunications), active(true) {
+        for (size_t i = 0; i < MAX_CONNECTIONS; i++) {
+            skippedCount[i] = 0;
+        }
+    }
     uint8_t priority;
     MasterCallback masterCallback;
     SlaveCallback slaveCallback;
     MasterReceiveCallback masterReceiveCallback;
     uint8_t maxSlaveResponseSize;
-    uint8_t skippedCount;
+    uint8_t skippedCount[MAX_CONNECTIONS];
     uint8_t frameType;
     int16_t maxComunications; // will get deleted when reached
     bool active;
@@ -136,6 +151,8 @@ private:
     size_t readFrameSize;
     uint64_t nextMasterSendUs;
 
+    uint32_t slaveConnectionRandom;
+
     uint32_t comunicationDelay;
 
     Comunication comunications[MAX_COMUNICATION_SIZE];
@@ -152,6 +169,8 @@ private:
 
     uint64_t lastMasterFrame;
     bool masterConnected; // only for slaves
+
+    uint32_t lastConnectionAttempt;
 
     bool currentComunicationReceived;
 
@@ -188,4 +207,6 @@ private:
     void timeoutSlaves();
 
     void calculateLQ();
+
+    uint8_t getActiveComunicationCount();
 };

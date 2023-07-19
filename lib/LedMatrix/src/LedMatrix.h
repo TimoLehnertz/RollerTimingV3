@@ -12,6 +12,7 @@
 #define MONOSPACE          0b01000000
 #define UPPERCASE          0b00100000
 #define FONT_SIZE_SMALL    0b00010000
+#define FONT_SIZE_BIG      0b00000000
 #define SPACING            0b00000111
 
 #define FONT_SETTINGS_DEFAULT UPPERCASE + 1

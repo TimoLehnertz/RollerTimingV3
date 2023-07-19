@@ -3,10 +3,10 @@
 #include <images.h>
 #include <EasyBuzzer.h>
 
-#define MAX_ENTER_TIME_MS 1000
-#define MAX_MENU_ITEM_COUT 10
+#define MAX_ENTER_TIME_MS 500
+#define MAX_MENU_ITEM_COUT 15
 
-#define MAX_SELECT_OPTIONS 10
+#define MAX_SELECT_OPTIONS 5
 
 typedef void (*ChangeListener)();
 
@@ -33,6 +33,8 @@ public:
         this->height = 0;
         this->hiding = false;
         this->changeListener = nullptr;
+        this->iAmAsubMenu = false;
+        this->highlightBack = false;
     }
 
     MenuItem(bool selectable, int height) {
@@ -41,6 +43,8 @@ public:
         this->height = height;
         this->hiding = false;
         this->changeListener = nullptr;
+        this->iAmAsubMenu = false;
+        this->highlightBack = false;
     }
 
     /**
@@ -58,11 +62,14 @@ public:
     virtual void removeFocus() = 0;
     
     void render(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
-        if(hiding) return;
         display->setTextAlignment(TEXT_ALIGN_LEFT);
         display->setFont(ArialMT_Plain_10);
         if(highlighted) {
-            display->drawString(x + (height - 10) / 2, y, ">");
+            if(highlightBack) {
+                display->drawString(x + (height - 10) / 2, y, "<");
+            } else {
+                display->drawString(x + (height - 10) / 2, y, ">");
+            }
         }
         renderComponent(display, state, x, y);
     }
@@ -74,7 +81,7 @@ public:
     }
 
     int getHeight() {
-        return height * (!hiding);
+        return height;
     }
 
     bool isHighlighted() {
@@ -97,12 +104,21 @@ public:
         this->changeListener = changeListener;
     }
 
+    bool isSubMenu() {
+        return iAmAsubMenu;
+    }
+
+    void setHighlightBack(bool highlightBack) {
+        this->highlightBack = highlightBack;
+    }
 
 protected:
+    bool highlightBack;
     bool selectable;
     bool highlighted;
     int height;
     bool hiding;
+    bool iAmAsubMenu;
     ChangeListener changeListener;
     
     void change() {
@@ -246,6 +262,10 @@ public:
         this->precision = precision;
         this->changeListener = changeListener;
         this->isEditable = true;
+        this->consecutiveIncrements = 0;
+        this->consecutiveDecrements = 0;
+        this->lastIncrement = 0;
+        this->lastDecrement = 0;
         if(strlen(text) > 15) {
             height = 22;
         }
@@ -260,7 +280,8 @@ public:
         }
         display->drawStringMaxWidth(x + 14 + 2, y, 66, text);
         display->drawString(x + 128 - 16, y + yOffset, unit);
-        display->drawString(x + 90, y + yOffset, String(number, precision));
+        display->setTextAlignment(TEXT_ALIGN_RIGHT);
+        display->drawString(x + 128 - 16 - 2, y + yOffset, String(number, precision));
         if(isHighlighted()) {
             display->drawLine(x + 88, y + 12 + yOffset, x + 88 + 20, y + 12 + yOffset);
         }
@@ -273,11 +294,31 @@ public:
                 change();
                 return true;
             case PROCESSED_EVENT_SCROLL_DOWN: {
-                number-=step;
+                if(millis() - lastDecrement < 300) {
+                    consecutiveDecrements++;
+                } else {
+                    consecutiveDecrements = 0;
+                }
+                double adjustedStep = step;
+                if(consecutiveDecrements > 5) {
+                    adjustedStep = step * 10;
+                }
+                lastDecrement = millis();
+                number-=adjustedStep;
                 break;
             }
             case PROCESSED_EVENT_SCROLL_UP: {
-                number+=step;
+                if(millis() - lastIncrement < 300) {
+                    consecutiveIncrements++;
+                } else {
+                    consecutiveIncrements = 0;
+                }
+                double adjustedStep = step;
+                if(consecutiveIncrements > 5) {
+                    adjustedStep = step * 10;
+                }
+                lastIncrement = millis();
+                number+=adjustedStep;
                 break;
             }
         }
@@ -306,7 +347,7 @@ public:
         this->isEditable = isEditable;
     }
 
-private:
+protected:
     const char* text;
     const char* unit;
     double number;
@@ -315,11 +356,44 @@ private:
     double step;
     int precision;
     bool isEditable;
+    size_t consecutiveIncrements;
+    size_t consecutiveDecrements;
+    uint32_t lastIncrement;
+    uint32_t lastDecrement;
+};
+
+class TimeInput : public NumberField {
+public:
+    TimeInput(const char* text, double minMs, double maxMs, double stepMs, double ms = 0, ChangeListener changeListener = nullptr) : NumberField(text, "s", stepMs, minMs, maxMs, 0, ms, changeListener) {}
+
+    void renderComponent(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) override {
+        display->setTextAlignment(TEXT_ALIGN_LEFT);
+        display->setFont(ArialMT_Plain_10);
+        int yOffset = 0;
+        if(strlen(text) > 15) {
+            yOffset = 7;
+        }
+        display->drawStringMaxWidth(x + 14 + 2, y, 66, text);
+        display->setTextAlignment(TEXT_ALIGN_RIGHT);
+        char timeStr[10];
+        if(number < 1000) {
+            sprintf(timeStr, "%ims", int(number));
+        } else if(number < 60000) {
+            sprintf(timeStr, "%.3fs", number / 1000.0);
+        } else {
+            sprintf(timeStr, "%i:%.3f", int(number / 60000.0), (int(number) % 60000) / 1000.0);
+        }
+
+        display->drawString(x + 128 - 2, y + yOffset, timeStr);
+        if(isHighlighted()) {
+            display->drawLine(x + 88, y + 12 + yOffset, x + 88 + 20, y + 12 + yOffset);
+        }
+    }
 };
 
 class Menu {
 public:
-    Menu(const char* backBtnText = "Back");
+    Menu(const char* backBtnText = "< Back  ");
 
     void render(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y);
 
@@ -339,6 +413,9 @@ public:
 
     void removeItem(MenuItem* item);
 
+    MenuItem* getItem(size_t index);
+
+    size_t getItemCount();
 private:
     Button backBtn;
     MenuItem* menuItems[MAX_MENU_ITEM_COUT];
@@ -353,7 +430,6 @@ private:
     bool itemFocused;
 
     MenuItem* getFocusedItem();
-    MenuItem* getItem(size_t index);
 };
 
 class SubMenu : public MenuItem {
@@ -362,12 +438,14 @@ public:
         this->text = text;
         this->subMenu = nullptr;
         this->opened = false;
+        this->iAmAsubMenu = true;
     }
 
     SubMenu(const char* text, Menu* subMenu) : MenuItem(true, 10) {
         this->text = text;
         this->subMenu = subMenu;
         this->opened = false;
+        this->iAmAsubMenu = true;
     }
 
     void renderComponent(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) override {
@@ -392,12 +470,10 @@ public:
         if(!subMenu) return true;
         opened = true;
         subMenu->focus();
-        hiding = true;
         return false;
     }
 
     void removeFocus() {
-        hiding = false;
         opened = false;
     }
 
@@ -473,6 +549,10 @@ public:
         }
         // fallback return to last know state
         setValue(value);
+        if(event == GUIProcessedEvent::PROCESSED_EVENT_ENTER) {
+            removeFocus();
+            return true;
+        }
         return finished;
     }
 
@@ -601,6 +681,7 @@ private:
     bool sectionFocused;
     bool mouseDown;
     int64_t mouseDownMs;
+    uint32_t backBtnAction;
     static const char* message;
 
     GUIProcessedEvent processEvent(GUIInputEvent event);

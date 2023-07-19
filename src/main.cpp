@@ -46,30 +46,34 @@ void trigger() {
 
 void setup() {
   Serial.begin(115200);
+  // simple
   pinMode(PIN_ROTARY_GND, OUTPUT);
   digitalWrite(PIN_ROTARY_GND, LOW);
   beginSounds();
-  Rotary.begin();
   pinMode(PIN_LED_WHITE, OUTPUT);
   pinMode(PIN_VBAT, INPUT);
   pinMode(PIN_LASER, INPUT);
   attachInterrupt(digitalPinToInterrupt(PIN_LASER), trigger, FALLING);
   pinMode(PIN_BUZZER_GND, OUTPUT);
   digitalWrite(PIN_BUZZER_GND, LOW);
-  beginLCDDisplay(); // needed for status variables
-  beginRadio();
-  beginLEDDisplay();
-  beginPreferences();
-  beginMasterSlaveLogic();
+  // complex without dependencies
   spiffsLogic.begin();
-  isMasterChanged(); // trigger possible changes
-  playSoundBootUp();
-  Serial.println("Setup complete");
+  
+  Rotary.begin();
+  beginLEDDisplay();
+  beginRadio();
+  beginLCDDisplay(); // needed for status variables
+  // complex with dependencies
+  beginPreferences(); // depends on beginLCDDisplay
+  beginMasterSlaveLogic(); // depends on beginLCDDisplay
+  isMasterChanged();
   isDisplayChanged();
+  Serial.println("Setup complete");
 }
 
 
 void handleTriggers() {
+  if(displayStation) return;
   static uint32_t lastTimeTriggeredMs = 0;
   static uint32_t lastTriggerCount = 0;
   if(lastTriggerCount != triggerCount) {
@@ -82,12 +86,14 @@ void handleTriggers() {
     if(isMasterCB->isChecked()) {
 
     } else {
-      slaveTrigger(lastTriggerMs);
+      slaveTrigger(lastTriggerMs, stationTypeSelect->getValue());
     }
   }
 }
 
 void loop() {
+  // if(millis() % 100 == 0)
+  //   Serial.println(analogRead(PIN_LASER));
   handleTriggers();
   handleRadioReceive();
   handleradioSend();
@@ -98,6 +104,7 @@ void loop() {
   handleBattery();
   beginWiFi();
   handleSounds();
+  handleStartgun();
   EasyBuzzer.update();
   loops++;
   if(millis() - lastHzMeasuredMs > 1000) {

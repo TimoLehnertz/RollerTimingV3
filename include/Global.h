@@ -23,6 +23,8 @@
 #include <definitions.h>
 #include <SPIFFSLogic.h>
 
+bool displayStation = false; // is this a display or laser
+
 SPIFFSLogic spiffsLogic = SPIFFSLogic();
 
 uint32_t timeForSize(uint8_t size);
@@ -71,9 +73,23 @@ NumberField* distFromStartInput;
 NumberField* minDelayInput;
 NumberField* displayTimeInput;
 NumberField* displayBrightnessInput;
-CheckBox* isDisplayCheckbox;
 CheckBox* isMasterCB;
 Select* powerSavingSelect;
+Select* trainingsModeSelect;
+CheckBox* showAdvancedCB;
+SubMenu* debugSubMenu;
+TextItem* advancedText;
+NumberField* inPositionMinDelay;
+NumberField* inPositionMaxDelay;
+NumberField* setMinDelay;
+NumberField* setMaxDelay;
+NumberField* goMinDelay;
+NumberField* goMaxDelay;
+TimeInput* targetTimeInput;
+NumberField* targetMetersInput;
+NumberField* targetMetersPerLapInput;
+Select* stationTypeSelect;
+
 
 // Debug items
 MenuItem* debugMenuItems[5];
@@ -83,11 +99,18 @@ NumberField* vBatMeasured;
 NumberField* vBatText;
 NumberField* hzText;
 NumberField* uidText;
+NumberField* freeHeapText;
+NumberField* heapSizeText;
+
+
 
 Menu* connectionsMenuMaster;
 Menu* connectionsMenuSlave;
+Menu* viewerMenu;
+Menu* targetTimeMenu;
+SubMenu* targetTimeSubMenu;
 
-FrameSection* connectionsFrameSection;
+FrameSection* frameSections = new FrameSection[5];
 
 volatile uint32_t triggerCount = 0;
 volatile uint32_t lastTriggerMs;
@@ -101,16 +124,12 @@ size_t overlaysCount = 1;
  */
 ICACHE_RAM_ATTR void setFlag(void);
 
-bool isDisplay() {
-  return isDisplayCheckbox->isChecked();
-}
-
 bool isTriggered() {
   return !digitalRead(PIN_LASER);
 }
 
-void masterTrigger(uint32_t masterTimeMs, uint16_t uid) {
-  spiffsLogic.addTrigger(masterTimeMs, uid);
+void masterTrigger(uint32_t masterTimeMs, uint16_t millimeters, uint8_t triggerType) {
+  spiffsLogic.addTrigger(masterTimeMs, millimeters, triggerType);
 }
 
 /**

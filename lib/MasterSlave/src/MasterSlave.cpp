@@ -1,6 +1,7 @@
 #include "MasterSlave.h"
 
 void printFrame(Frame f, uint8_t size) {
+    Serial.printf("(%i.%i)", millis() / 1000, millis() % 1000);
     if(f.address == ADDRESS_BROADCAST) {
         Serial.print("Master -> broadcast: ");
     } else if(f.address == ADDRESS_MASTER) {
@@ -17,6 +18,9 @@ void printFrame(Frame f, uint8_t size) {
             break;
         case FRAME_TYPE_SLAVE_I_WANT_TO_CONNECT:
             Serial.print("I want to connect");
+            break;
+        case FRAME_TYPE_MASTER_YOU_ARE_NOW_CONNECTED:
+            Serial.print("You are now connected");
             break;
         case FRAME_TYPE_SLAVE_YES_I_AM:
             Serial.print("Yes I am");
@@ -61,6 +65,7 @@ MasterSlave::MasterSlave(bool master, TimeForSize timeForSizeCallback) {
     this->masterGotNewConnectionCallback = nullptr;
     this->slaveDisconnectedCallback = nullptr;
     this->comunicationDelay = 0;
+    this->lastConnectionAttempt = 0;
 }
 
 void MasterSlave::setSlaveFoundMasterCallback(SlaveFoundMasterCallback slaveFoundMasterCallback) {
@@ -155,28 +160,37 @@ void MasterSlave::nextMasterComunication() {
         if(comunications[currentComunication].active == false) continue;
         if(comunications[currentComunication].isBroadcast()) { // broadcast
             if(currentConnection == 0) {
-                if(comunications[currentComunication].priority <= comunications[currentComunication].skippedCount) {
+                if(comunications[currentComunication].priority <= comunications[currentComunication].skippedCount[currentConnection]) {
                     sendMaserComunication(currentComunication, currentConnection);
-                    comunications[currentComunication].skippedCount = 0;
+                    comunications[currentComunication].skippedCount[currentConnection] = 0;
                     return;
                 } else {
-                    comunications[currentComunication].skippedCount++;
-                    continue;
+                    comunications[currentComunication].skippedCount[currentConnection]++;
                 }
-            } else {
-                continue; // only send broadcasts when currentConnection is 0
             }
         } else if(currentConnection < connectionSize) { // no broadcast
-            if(comunications[currentComunication].priority <= comunications[currentComunication].skippedCount) {
+            if(comunications[currentComunication].frameType == FRAME_TYPE_MASTER_ARE_YOU_THERE && getActiveComunicationCount() > 0) {
+                continue; // only send pings when there are no other packets to send
+            }
+            if(comunications[currentComunication].priority <= comunications[currentComunication].skippedCount[currentConnection]) {
                 sendMaserComunication(currentComunication, currentConnection);
                 connections[currentConnection].attemptedPackets++;
-                comunications[currentComunication].skippedCount = 0;
+                comunications[currentComunication].skippedCount[currentConnection] = 0;
                 return;
             } else {
-                comunications[currentComunication].skippedCount++;
+                comunications[currentComunication].skippedCount[currentConnection]++;
             }
         }
     }
+}
+
+uint8_t MasterSlave::getActiveComunicationCount() {
+    uint8_t count = 0;
+    for (size_t i = 0; i < comunicationsSize; i++) {
+        if(comunications[i].isBroadcast() || !comunications[i].active) continue;
+        count++;
+    }
+    return count;
 }
 
 void MasterSlave::timeoutSlaves() {
@@ -286,11 +300,17 @@ void MasterSlave::setMaster(bool master) {
 
 void MasterSlave::processFrameAsMaster(Frame& frame, size_t size) {
     if(frame.frameType == FRAME_TYPE_SLAVE_I_WANT_TO_CONNECT) { // try to establish connection
-        if(generateNewAddress() != frame.data[0]) {
+        if(generateNewAddress() != frame.data[0]) { // check if address is still free
             Serial.println("Invalid accepted address");
             return;
         }
+        writeFrame.address = ADDRESS_BROADCAST;
+        writeFrame.data[0] = frame.data[0]; // address
+        *((uint32_t*) &writeFrame.data[1]) = *((uint32_t*) &frame.data[1]); // slaves random number
+        writeFrame.frameType = FRAME_TYPE_MASTER_YOU_ARE_NOW_CONNECTED;
+        writeFrameSize = FRAME_HEADER_SIZE + sizeof(uint8_t) + sizeof(uint32_t);
         addConnection(frame.data[0]);
+        nextMasterSendUs = micros() + PAUSE_TILL_RESPONSE_US + comunicationDelay + TIMEOUT_US;
         return;
     }
     if(frame.frameType > FRAME_TYPE_MAX && frame.frameType != comunications[currentComunication].frameType) { // check for errors
@@ -352,16 +372,27 @@ void MasterSlave::processFrameAsSlave(Frame& frame, size_t size) {
             break;
         }
         case FRAME_TYPE_MASTER_HEY_PLEASE_CONNECT_TO_ME: {
-            if(masterConnected) return;
-            address = frame.data[0];
+            if(masterConnected || millis() - lastConnectionAttempt < MASTER_SLAVE_TIMEOUT_MS) return;
+            Serial.println("master wants me to connect");
             writeFrame.address = ADDRESS_MASTER;
             writeFrame.frameType = FRAME_TYPE_SLAVE_I_WANT_TO_CONNECT;
-            writeFrame.data[0] = address;
-            writeFrameSize = FRAME_HEADER_SIZE + 1;
-            lastMasterFrame = micros();
-            masterConnected = true; // assuming that connection was established succsessfully
-            Serial.println("Connected to master");
-            if(slaveFoundMasterCallback) slaveFoundMasterCallback(address);
+            writeFrame.data[0] = frame.data[0]; // accepted address
+            slaveConnectionRandom = esp_random();
+            *((uint32_t*) &writeFrame.data[1]) = slaveConnectionRandom;
+            writeFrameSize = FRAME_HEADER_SIZE + sizeof(uint8_t) + sizeof(uint32_t);
+            lastConnectionAttempt = millis();
+            break;
+        }
+        case FRAME_TYPE_MASTER_YOU_ARE_NOW_CONNECTED: {
+            if(slaveConnectionRandom == *((uint32_t*) &frame.data[1])) {
+                address = frame.data[0];
+                lastMasterFrame = micros();
+                masterConnected = true; // assuming that connection was established succsessfully
+                Serial.println("Connected to master");
+                if(slaveFoundMasterCallback) slaveFoundMasterCallback(address);
+            } else {
+                Serial.println("Master didnt connect to accept me");
+            }
             break;
         }
         default: {

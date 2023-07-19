@@ -66,6 +66,32 @@ void handleSounds() {
     }
 }
 
+void playSoundStartgunIdle() {
+    Sound sound = Sound();
+    sound.addBeep(Beep(50, 4000, 10));
+    playSound(sound);
+    // Serial.println("playSoundStartgunIdle");
+    // EasyBuzzer.beep(4000, 50, 10, 1, 100, 1);
+}
+
+void playSoundStartgunInPosition() {
+    Sound sound = Sound();
+    sound.addBeep(Beep(50, 9000, 100, 200, 3));
+    playSound(sound);
+}
+
+void playSoundStartgunSet() {
+    Sound sound = Sound();
+    sound.addBeep(Beep(50, 9000, 500, 200, 2));
+    playSound(sound);
+}
+
+void playSoundStartgunGo() {
+    Sound sound = Sound();
+    sound.addBeep(Beep(50, 10000, 500));
+    playSound(sound);
+}
+
 void playSoundNewConnection() {
     Sound sound = Sound();
     sound.addBeep(Beep(50, 4000, 100));

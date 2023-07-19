@@ -6,9 +6,16 @@
 
 #ifndef TRIGGER_DEFINED
 #define TRIGGER_DEFINED
+
+#define STATION_TRIGGER_TYPE_START_FINISH 0
+#define STATION_TRIGGER_TYPE_START 1
+#define STATION_TRIGGER_TYPE_CHECKPOINT 2
+#define STATION_TRIGGER_TYPE_FINISH 3
+
 struct Trigger {
   uint32_t timeMs; // overflows after 50 days
-  uint16_t uid;
+  uint16_t millimeters;
+  uint8_t triggerType;
 };
 #endif
 
@@ -59,7 +66,7 @@ public:
     
   }
 
-  void addTrigger(uint32_t timeMs, uint16_t uid) {
+  void addTrigger(uint32_t timeMs, uint16_t millimeters, uint8_t triggerType) {
     if(triggers.size() == 0) { // this is the first trigger
       File file;
       file = SPIFFS.open(path, FILE_WRITE, true);
@@ -70,7 +77,7 @@ public:
       }
       file.close();
     }
-    Trigger trigger = Trigger { timeMs, uid };
+    Trigger trigger = Trigger { timeMs, millimeters, triggerType };
     File file = SPIFFS.open(path, FILE_APPEND, true);
     size_t written = file.write((uint8_t*) &trigger, sizeof(Trigger));
     file.close();
@@ -139,8 +146,7 @@ public:
       Serial.println("SPIFFS Mount Failed");
       return false;
     }
-    Serial.printf("SPIFFS space: %i/%i bytes\n", SPIFFS.usedBytes(), SPIFFS.totalBytes());
-
+    Serial.printf("SPIFFS space: %i/%ikb (used: %i%)\n", SPIFFS.usedBytes() / 1000, SPIFFS.totalBytes() / 1000, round(SPIFFS.totalBytes() / (SPIFFS.usedBytes() + 1) * 100));
     if(!SPIFFS.exists(sessionsPath)) {
       SPIFFS.mkdir(sessionsPath);
       Serial.printf("Created directory %s\n", sessionsPath);
@@ -171,9 +177,9 @@ public:
     return sessionMetas;
   }
 
-  bool addTrigger(uint32_t timeMs, uint16_t uid) {
+  bool addTrigger(uint32_t timeMs, uint16_t millimeters, uint8_t triggerType) {
     if(!currentSession.isValid() || !this->sessionLoaded) return false;
-    currentSession.addTrigger(timeMs, uid);
+    currentSession.addTrigger(timeMs, millimeters, triggerType);
     return true;
   }
 

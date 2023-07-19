@@ -5,10 +5,10 @@
 
 #define ASCII_OFFSET 33
 
-#define FONT_SMALL_WIDTH 4
+#define FONT_SMALL_WIDTH 3
 #define FONT_SMALL_HEIGHT 5
 
-#define FONT_NORMAL_WIDTH 5
+#define FONT_NORMAL_WIDTH 4
 #define FONT_NORMAL_HEIGHT 8
 
 constexpr uint8_t fontSmall[100][4] = {
@@ -123,8 +123,8 @@ constexpr uint8_t fontSmall[100][4] = {
         0b00011111,
         0b00000000,
     }, {
-        0b00011111,// 7
-        0b00010000,
+        0b00011100,// 7
+        0b00010011,
         0b00010000,
         0b00000000,
     }, {
@@ -573,11 +573,11 @@ constexpr uint8_t fontNormal[70][5] = {
         0b11111111,
         0b00000000
     }, {
-        0b00000000,// 1
-        0b00000001,
-        0b11111111,
-        0b10000001,
+        0b11111111, // 1
         0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000
     }, {
         0b11110001,// 2
         0b10010001,

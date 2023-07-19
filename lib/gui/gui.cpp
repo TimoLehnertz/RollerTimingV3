@@ -17,6 +17,7 @@ Menu::Menu(const char* backBtnText) {
     this->activeItem = 0;
     this->itemFocused = false;
     this->backBtn = Button(backBtnText);
+    this->backBtn.setHighlightBack(true);
 }
 
 void Menu::render(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
@@ -24,7 +25,11 @@ void Menu::render(ScreenDisplay *display, DisplayUiState* state, int16_t x, int1
     this->y = this->targetY * lpf + (1.0 - lpf) * this->y;
     x -= int(this->x);
     y -= int(this->y);
+    if(activeItem >= menuItemsCount) {
+        activeItem = menuItemsCount; // back button
+    }
     for (size_t i = 0; i < menuItemsCount; i++) {
+        if(getItem(i)->isHidden()) continue;
         getItem(i)->render(display, state, x, y);
         y += getItem(i)->getHeight() + gap;
     }
@@ -41,6 +46,10 @@ MenuItem* Menu::getItem(size_t index) {
     } else {
         return &backBtn;
     }
+}
+
+size_t Menu::getItemCount() {
+    return menuItemsCount;
 }
 
 /**
@@ -69,33 +78,34 @@ bool Menu::handleEvent(GUIProcessedEvent event) {
             bool willLooseFocus = getFocusedItem()->focus();
             if(!willLooseFocus) {
                 itemFocused = true;
-                if(getFocusedItem()->isHidden()) {
+                if(getFocusedItem()->isSubMenu()) {
                     openSubMenu();
                 }
             }
             break;
         }
         case PROCESSED_EVENT_SCROLL_DOWN: {
-            getFocusedItem()->setHighlighted(false);
-            for (size_t i = 0; i < menuItemsCount; i++) {
-                activeItem++;
-                if(getItem(activeItem)->isHidden()) continue;
-                if(activeItem > menuItemsCount) activeItem = menuItemsCount; // back button
-                if(getFocusedItem()->isSelectable()) break;
+            for (int16_t newActiveItem = activeItem + 1; newActiveItem <= menuItemsCount; newActiveItem++) { // <= because of back button
+                if(getItem(newActiveItem)->isSelectable() && !getItem(newActiveItem)->isHidden()) {
+                    getItem(activeItem)->setHighlighted(false);
+                    getItem(newActiveItem)->setHighlighted(true);
+                    scrollToItem(newActiveItem);
+                    activeItem = newActiveItem;
+                    break;
+                }
             }
-            scrollToItem(activeItem);
-            getFocusedItem()->setHighlighted(true);
             break;
         }
         case PROCESSED_EVENT_SCROLL_UP: {
-            getFocusedItem()->setHighlighted(false);
-            for (size_t i = 0; i < menuItemsCount; i++) {
-                activeItem--;
-                if(activeItem < 0) activeItem = 0;
-                if(getFocusedItem()->isSelectable()) break;
+            for (int16_t newActiveItem = activeItem - 1; newActiveItem >= 0; newActiveItem--) {
+                if(getItem(newActiveItem)->isSelectable() && !getItem(newActiveItem)->isHidden()) {
+                    getItem(activeItem)->setHighlighted(false);
+                    getItem(newActiveItem)->setHighlighted(true);
+                    scrollToItem(newActiveItem);
+                    activeItem = newActiveItem;
+                    break;
+                }
             }
-            scrollToItem(activeItem);
-            getFocusedItem()->setHighlighted(true);
             break;
         }
     }
@@ -112,6 +122,7 @@ void Menu::closeSubMenu() {
 void Menu::openSubMenu() {
     int16_t itemTop = 0;
     for (size_t i = 0; i < activeItem; i++) {
+        if(getItem(i)->isHidden()) continue;
         itemTop += getItem(i)->getHeight() + gap;
     }
     targetY = itemTop;
@@ -121,7 +132,8 @@ void Menu::openSubMenu() {
 void Menu::scrollToItem(size_t index) {
     int16_t itemTop = 0;
     for (size_t i = 0; i < index; i++) {
-        itemTop += getItem(i)->getHeight() + gap; // hidden items have height of 0
+        if(getItem(i)->isHidden()) continue;
+        itemTop += getItem(i)->getHeight() + gap;
     }
     targetY = itemTop - getItem(index)->getHeight() / 2.0 - 32 + 5;
 }
@@ -137,8 +149,16 @@ void Menu::removeFocus(){
 
 void Menu::focus() {
     x = 0;
-    getFocusedItem()->setHighlighted(true);
-    scrollToItem(activeItem);
+    getItem(activeItem)->setHighlighted(false);
+    while(true) { // trusting that at least the back button is visible and selectable
+        if(getItem(activeItem)->isHidden() || !getItem(activeItem)->isSelectable()) {
+            activeItem++;
+        } else {
+            scrollToItem(activeItem);
+            getItem(activeItem)->setHighlighted(true);
+            break;
+        }
+    }
 }
 
 void Menu::addItem(MenuItem* item) {
@@ -149,8 +169,8 @@ void Menu::addItem(MenuItem* item) {
 void Menu::removeItem(MenuItem* item) {
     for (size_t i = 0; i < menuItemsCount; i++) {
         if(menuItems[i] == item) {
-            for (size_t l = i; i < menuItemsCount - 1; l++) {
-                menuItems[l] = menuItems[l + i];
+            for (size_t l = i; l < menuItemsCount - 1; l++) {
+                menuItems[l] = menuItems[l + 1];
             }
             menuItemsCount--;
         }
@@ -165,6 +185,7 @@ UIManager::UIManager(DisplayUi* displayUI) {
     this->mouseDownMs = 0;
     this->mouseDown = false;
     this->message = nullptr;
+    this->backBtnAction = UINT32_MAX;
 }
 
 UIManager::~UIManager() {
@@ -229,16 +250,22 @@ void UIManager::begin(OverlayCallback* userOverlays, size_t overlayCount, FrameS
     displayUI->setOverlays(overlays, this->overlayCount + 1);
 
     // Initialising the UI will init the display too.
-    displayUI->init();
+    static bool displayInitiated = false;
+    if(!displayInitiated) {
+        displayUI->init();
+        displayInitiated = true;
+    }
 
     displayUI->disableAutoTransition();
 }
 
 void UIManager::handle() {
     // events
-    if(mouseDown && millis() - mouseDownMs > MAX_ENTER_TIME_MS) {
+    if(mouseDown && millis() > backBtnAction) {
         handleProcessedEvent(PROCESSED_EVENT_CANCEL);
+        backBtnAction = millis() + MAX_ENTER_TIME_MS;
         mouseDownMs = INT64_MAX;
+        // mouseDown = false;
     }
     if(millis() > nextUIUpdate) {
         nextUIUpdate = millis() + displayUI->update();
@@ -256,8 +283,9 @@ void UIManager::popup(const char* message) {
 GUIProcessedEvent UIManager::processEvent(GUIInputEvent event) {
     switch(event) {
         case INPUT_EVENT_MOUSE_DOWN: {
-            this->mouseDown = true;
-            this->mouseDownMs = millis();
+            mouseDown = true;
+            mouseDownMs = millis();
+            backBtnAction = millis() + MAX_ENTER_TIME_MS;
             return PROCESSED_EVENT_NONE;
         }
         case INPUT_EVENT_MOUSE_UP: {
@@ -325,7 +353,7 @@ void UIManager::handleProcessedEvent(GUIProcessedEvent event) {
                 break;
             case PROCESSED_EVENT_CANCEL:
                 displayUI->transitionToFrame(0);
-                activeSection = displayUI->getNextFrameNumber();
+                activeSection = 0;
                 break;
             case PROCESSED_EVENT_SCROLL_UP:
                 displayUI->nextFrame();
