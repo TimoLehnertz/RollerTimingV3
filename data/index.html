@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roller timing</title>
+    <style>
+        p {
+            margin: 0;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Arial", sans-serif;
+            background: linear-gradient(to bottom right, #4287f5, #b243f5);
+            display: flex;
+            justify-content: center;
+            align-items: start;
+            padding-top: 5rem;
+            min-height: calc(100vh - 5rem);
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: start;
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+        .content {
+            text-align: center;
+        }
+        h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        p {
+            font-size: 16px;
+            color: #555;
+        }
+        .download-btn {
+            border: none;
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #4287f5;
+            color: white;
+            font-size: 15px;
+            border-radius: 8px;
+            text-decoration: none;
+        }
+
+        .download-btn:hover {
+            background-color: #325792;
+        }
+
+        .flex {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .flex {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="content">
+            <h1>Roller timing</h1>
+            <hr>
+            <br>
+            <p>Download your trainingssessions in excel format</p>
+            <br>
+            <div class="flex">
+                <p>Your last session: <span class="lastSessionSize">5</span> Laps saved</p>
+                <a class="download-btn" href="/download.txt">Download</a>
+            </div>
+            <br>
+            <br>
+            <div>
+                <button onclick="loadMore()" class="download-btn">See <span class="othersSize">10</span> others sessions</button>
+            </div>
+            <br>
+            <div class="others">
+                
+            </div>
+        </div>
+    </div>
+</body>
+<script>
+function loadMore() {
+    let xhr = new XMLHttpRequest();
+    xhr.open('GET', '/loadmore.json', true);
+
+    // Set up a callback function to handle the response
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            if (xhr.status === 200) {
+                let response = JSON.parse(xhr.responseText);
+                console.log(response);
+            } else {
+                alert("Error: " + xhr.status);
+            }
+        }
+    };
+
+    // Send the request
+    xhr.send();
+}
+</script>
+</html>

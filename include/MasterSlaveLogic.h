@@ -10,60 +10,71 @@
  */
 #pragma once
 #include <Global.h>
-#include <LinkedList.h>
 #include <WiFiLogic.h>
 #include <Sound.h>
 #include <GuiLogic.h>
+#include <DoubleLinkedList.h>
 
 #define MAX_SLAVE_TRIGGERS 256
 
 void guiRemoveConnection(uint8_t address);
-void guiSetConnection(uint8_t address, int millimeters, uint8_t lq);
+void guiSetConnection(uint8_t address, int millimeters, uint8_t lq, uint8_t stationType);
 
 struct SlaveLaser {
     uint8_t address; // actual MasterSlave connection containing metadata
     uint16_t millimeters; // the number of millimeters between this station and the start
     uint16_t triggerIndex; // holds the index of the last received trigger
     uint16_t uid; // number identifying the device
+    uint8_t stationType;
     bool connected;
 };
 
-LinkedList<SlaveLaser*> slaveLasers = LinkedList<SlaveLaser*>(); // for masters
-LinkedList<Trigger> slaveTriggers = LinkedList<Trigger>(); // for slaves
+DoubleLinkedList<SlaveLaser> slaveLasers = DoubleLinkedList<SlaveLaser>(); // for masters
+DoubleLinkedList<Trigger> slaveTriggers = DoubleLinkedList<Trigger>(); // for slaves
 
 bool timeSynced = false;
-uint32_t lastTimeSyncMs = 0;
-int32_t timeSyncOffset = 0;
+timeMs_t lastTimeSyncMs = 0;
+timeMs_t timeSyncOffset = 0;
 
 bool isTimeSynced() {
     return timeSynced;
 }
 
-uint32_t localTimeToMasterTime(uint32_t localTimeMs) {
-    if(long(localTimeMs) + timeSyncOffset < 0) return 0;
+timeMs_t localTimeToMasterTime(timeMs_t localTimeMs) {
     return localTimeMs + timeSyncOffset;
 }
 
-void addSlaveLaser(SlaveLaser* slaveLaser) {
-    Serial.printf("Discovered new laser on address %i. uid: %i\n", slaveLaser->address, slaveLaser->uid);
-    slaveLasers.add(slaveLaser);
+void addSlaveLaser(SlaveLaser slaveLaser) {
+    Serial.printf("Discovered new laser on address %i. uid: %i\n", slaveLaser.address, slaveLaser.uid);
+    slaveLasers.pushBack(slaveLaser);
 }
 
 SlaveLaser* getLaserByAddress(uint8_t address) {
-    for (size_t i = 0; i < slaveLasers.size(); i++) {
-        if(slaveLasers.get(i)->address == address) {
-            return slaveLasers.get(i);
+    for (SlaveLaser& slaveLaser : slaveLasers) {
+        if(slaveLaser.address == address) {
+            return &slaveLaser;
         }
     }
+    
+    // for (size_t i = 0; i < slaveLasers.size(); i++) {
+    //     if(slaveLasers.get(i)->address == address) {
+    //         return slaveLasers.get(i);
+    //     }
+    // }
     return nullptr;
 }
 
 SlaveLaser* getLaserByUid(uint16_t uid) {
-    for (size_t i = 0; i < slaveLasers.size(); i++) {
-        if(slaveLasers.get(i)->uid == uid) {
-            return slaveLasers.get(i);
+    for (SlaveLaser& slaveLaser : slaveLasers) {
+        if(slaveLaser.uid == uid) {
+            return &slaveLaser;
         }
     }
+    // for (size_t i = 0; i < slaveLasers.size(); i++) {
+    //     if(slaveLasers.get(i)->uid == uid) {
+    //         return slaveLasers.get(i);
+    //     }
+    // }
     return nullptr;
 }
 
@@ -80,7 +91,7 @@ void SlaveLostMasterCallbackFunc() {
 
 void MasterGotNewConnectionCallbackFunc(Connection* connection) {
     Serial.printf("New connection on address %i\n", connection->address);
-    playSoundNewConnection();
+    // gui will handle sound
 }
 
 void SlaveDisconnectedCallbackFunc(uint8_t slaveAddress) {
@@ -88,8 +99,8 @@ void SlaveDisconnectedCallbackFunc(uint8_t slaveAddress) {
     SlaveLaser* slaveLaser = getLaserByAddress(slaveAddress);
     if(!slaveLaser) return;
     slaveLaser->connected = false;
-    playSoundLostConnection();
     guiRemoveConnection(slaveAddress);
+    // gui will handle sound
 }
 
 struct TriggersMsgMasterToSlave {
@@ -101,16 +112,10 @@ struct TriggersMsgSlaveToMaster {
 
     uint16_t uid; // slave uid
     uint16_t millimeters; // slave uid
+    uint8_t stationType;
     bool rebootedFlag;
-    Trigger triggers[3]; // 0 - 3 triggers
-    
-    static uint8_t getSize(uint8_t triggerCount) {
-        return sizeof(uint16_t) + sizeof(uint16_t) + sizeof(bool) + triggerCount* sizeof(Trigger);
-    }
-
-    static uint8_t getTriggerCount(uint8_t size) {
-        return (size - sizeof(uint16_t) - sizeof(bool)) / sizeof(Trigger);
-    }
+    bool triggerFlag;
+    Trigger trigger; // 0 - 3 triggers
 };
 
 void triggersMasterDataCallback(uint8_t address, uint8_t* data, uint8_t* dataSize) {
@@ -135,58 +140,58 @@ void triggersSlaveDataCallback(uint8_t* data, uint8_t dataSize, uint8_t* respons
     slaveToMaster.uid = getUid();
     slaveToMaster.rebootedFlag = false;
     slaveToMaster.millimeters = distFromStartInput->getValue() * 1000;
+    slaveToMaster.stationType = stationTypeSelect->getValue();
+    slaveToMaster.triggerFlag = false;
     uint8_t sendTriggers = 0;
     // Serial.printf("Master wants %i, i got %i\n", masterToSlave->triggerIndex, slaveTriggers.size());
     if(masterToSlave->slaveUid == getUid()) {
         if(!isTimeSynced()) {
             // dont send any triggers yet
-        } else if(masterToSlave->triggerIndex > slaveTriggers.size() || masterToSlave->triggerIndex >= MAX_SLAVE_TRIGGERS) { // Slave must have rebooted
-            Serial.printf("I seem to have rebooted or have been overflowing\n", masterToSlave->triggerIndex);
+        } else if(masterToSlave->triggerIndex > slaveTriggers.getSize() || masterToSlave->triggerIndex >= MAX_SLAVE_TRIGGERS) { // Slave must have rebooted
+            Serial.printf("I seem to have rebooted or have been overflowing. Master wants: %i, i got: %i\n", masterToSlave->triggerIndex, slaveTriggers.getSize());
             slaveTriggers.clear();
             slaveToMaster.rebootedFlag = true;
         } else {
-            for (size_t i = masterToSlave->triggerIndex; i < min(slaveTriggers.size(), masterToSlave->triggerIndex + 3); i++) { // send max 3 triggers
-                Trigger trigger = slaveTriggers.get(i);
-                trigger.timeMs = localTimeToMasterTime(trigger.timeMs); // convert time
-                slaveToMaster.triggers[sendTriggers++] = trigger;
+            for (size_t i = masterToSlave->triggerIndex; i < min(int(slaveTriggers.getSize()), int(masterToSlave->triggerIndex + 1)); i++) { // send max 1 triggers
+                Trigger* trigger = slaveTriggers.get(i);
+                slaveToMaster.trigger = *trigger;
+                slaveToMaster.trigger.timeMs = localTimeToMasterTime(trigger->timeMs); // convert time
+                slaveToMaster.triggerFlag = true;
+                Serial.printf("Sending trigger of type: %i\n", trigger->triggerType);
             }
         }
     } else {
         Serial.printf("uid missmatch %i != %i\n", masterToSlave->slaveUid, getUid());
     }
-    if(sendTriggers > 0) {
-        Serial.printf("Send %i triggers\n", sendTriggers);
-    }
-    *responseSize = TriggersMsgSlaveToMaster::getSize(sendTriggers);
+    *responseSize = sizeof(TriggersMsgSlaveToMaster);
     memcpy(response, &slaveToMaster, *responseSize);
 }
 
 void triggersMasterReceiveCallback(uint8_t* data, uint8_t size, uint8_t slaveAddress) {
     // Serial.printf("slave data (%i) from %i\n", size, slaveAddress);
-    if(size < TriggersMsgSlaveToMaster::getSize(0)) return;
+    if(size < sizeof(TriggersMsgSlaveToMaster)) return;
     TriggersMsgSlaveToMaster* slaveToMaster = (TriggersMsgSlaveToMaster*) data;
     SlaveLaser* slaveLaser = getLaserByUid(slaveToMaster->uid);
     if(!slaveLaser) {
-        slaveLaser = new SlaveLaser{ slaveAddress, slaveToMaster->millimeters, 0, slaveToMaster->uid, true };
+        SlaveLaser slaveLaser = SlaveLaser{ slaveAddress, slaveToMaster->millimeters, 0, slaveToMaster->uid, slaveToMaster->stationType, true };
         addSlaveLaser(slaveLaser);
         return; // only add for now
     }
     slaveLaser->address = slaveAddress; // in case address changed
     slaveLaser->millimeters = slaveToMaster->millimeters;
+    slaveLaser->stationType = slaveToMaster->stationType;
     if(slaveToMaster->rebootedFlag) {
         Serial.println("Slave has rebooted. Resetting triggerIndex");
         slaveLaser->triggerIndex = 0;
-    }
-    size_t triggerCount = TriggersMsgSlaveToMaster::getTriggerCount(size);
-    for (size_t i = 0; i < triggerCount; i++) {
+    } else if(slaveToMaster->triggerFlag) {
         slaveLaser->triggerIndex++;
-        masterTrigger(slaveToMaster->triggers[i].timeMs, slaveLaser->millimeters, slaveToMaster->triggers[i].triggerType);
-        Serial.printf("Received trigger from uid: %i at address %i, new triggerindex: %i\n", slaveToMaster->uid, slaveAddress, slaveLaser->triggerIndex);
+        masterTrigger(slaveToMaster->trigger.timeMs, slaveLaser->millimeters, slaveToMaster->trigger.triggerType);
+        Serial.printf("Received trigger for master time: %i from uid: %i at address %i, new triggerindex: %i, triggerType: %i\n", slaveToMaster->trigger.timeMs, slaveToMaster->uid, slaveAddress, slaveLaser->triggerIndex, slaveToMaster->trigger.triggerType);
     }
 }
 
 struct TimeSyncMasterToSlave {
-    uint32_t currentTimeMs;
+    timeMs_t currentTimeMs;
 };
 
 struct TimeSyncSlaveToMaster {
@@ -230,14 +235,14 @@ void beginMasterSlaveLogic() {
     masterSlave.setSlaveLostMasterCallback(SlaveLostMasterCallbackFunc);
     masterSlave.setSlaveFoundMasterCallback(SlaveFoundMasterCallbackFunc);
     masterSlave.setMaster(isMasterCB->isChecked());
-    masterSlave.addComunication(1, triggersMasterDataCallback, triggersSlaveDataCallback, triggersMasterReceiveCallback, TriggersMsgSlaveToMaster::getSize(3));
+    masterSlave.addComunication(1, triggersMasterDataCallback, triggersSlaveDataCallback, triggersMasterReceiveCallback, sizeof(TriggersMsgSlaveToMaster));
     masterSlave.addComunication(50, timeSyncMasterDataCallback, timeSyncSlaveDataCallback, timeSyncMasterReceiveCallback, sizeof(TimeSyncSlaveToMaster));
     masterSlave.begin();
 }
 
-void slaveTrigger(uint32_t atMs, uint8_t triggerType) {
-    slaveTriggers.add(Trigger { atMs, uint16_t(distFromStartInput->getValue() * 1000), triggerType });
-    Serial.printf("Slave trigger(%i)\n", slaveTriggers.size());
+void slaveTrigger(timeMs_t atMs, uint8_t triggerType) {
+    slaveTriggers.pushBack(Trigger { atMs, uint16_t(distFromStartInput->getValue() * 1000), triggerType });
+    Serial.printf("Slave trigger #%i, triggerType: %i\n", slaveTriggers.getSize(), triggerType);
 }
 
 void handleMasterSlaveLogic() {
@@ -247,9 +252,11 @@ void handleMasterSlaveLogic() {
         if(!connection) continue;
         SlaveLaser* slaveLaser = getLaserByAddress(connection->address);
         int millimeters = -1;
+        uint8_t stationType = STATION_TRIGGER_TYPE_NONE;
         if(slaveLaser) {
             millimeters = slaveLaser->millimeters;
+            stationType = slaveLaser->stationType;
         }
-        guiSetConnection(connection->address, millimeters, connection->lq);
+        guiSetConnection(connection->address, millimeters, connection->lq, stationType);
     }
 }

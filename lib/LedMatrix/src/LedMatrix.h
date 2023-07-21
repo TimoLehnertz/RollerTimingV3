@@ -46,11 +46,11 @@ public:
     void line(int x1, int y1, int x2, int y2, CRGB color);
     void rect(int x1, int y1, int x2, int y2, CRGB color);
     void dot(int x, int y, CRGB color);
-    void printTime(int x, int y, uint32_t ms, bool oneMsDigit = false);
+    void printTime(int x, int y, int32_t ms, bool oneMsDigit = false);
 
     static int textWidth(const char* str, uint8_t settings = FONT_SETTINGS_DEFAULT);
     static int boundsFromChar(char digit, uint8_t settings);
-    static void timeToStr(uint32_t msTime, char* hStr, char* mStr, char* sStr, char* msStr, bool oneMsDigit);
+    static void timeToStr(int32_t msTime, char* hStr, char* mStr, char* sStr, char* msStr, bool oneMsDigit);
 
     uint16_t getWidth();
     uint16_t getHeight();

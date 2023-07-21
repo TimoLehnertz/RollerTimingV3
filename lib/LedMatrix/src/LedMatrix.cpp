@@ -124,9 +124,9 @@ int LedMatrix::print(char digit, int xPos, int yPos, CRGB color, uint8_t setting
             renderPixel(x + xPos, yPos + height + 1, color);
         }
     }
-    // if(digit == '.' || digit == ',') {
-    //     width--;
-    // }
+    if(digit == '.' || digit == ',') {
+        width--;
+    }
     return xPos + width + (settings & SPACING);
 }
 
@@ -224,7 +224,8 @@ void LedMatrix::setBlur(double blur) {
     this->blur = max(min(blur, 1.0), 0.0);
 }
 
-void LedMatrix::timeToStr(uint32_t msTime, char* hStr, char* mStr, char* sStr, char* msStr, bool oneMsDigit) {
+void LedMatrix::timeToStr(int32_t msTime, char* hStr, char* mStr, char* sStr, char* msStr, bool oneMsDigit) {
+    msTime = abs(msTime);
   uint16_t ms = msTime % 1000;
   uint32_t seconds = (msTime / 1000) % 60;
   uint16_t minutes = (msTime / 60000) % 60;
@@ -254,7 +255,8 @@ void LedMatrix::timeToStr(uint32_t msTime, char* hStr, char* mStr, char* sStr, c
   }
 }
 
-void LedMatrix::printTime(int x, int y, uint32_t ms, bool oneMsDigit) {
+void LedMatrix::printTime(int x, int y, int32_t msSigned, bool oneMsDigit) {
+    int32_t ms = abs(msSigned);
     char hStr[10] = "\0";
     char mStr[3]  = "\0";
     char sStr[3];

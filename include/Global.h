@@ -23,11 +23,18 @@
 #include <definitions.h>
 #include <SPIFFSLogic.h>
 
-bool displayStation = false; // is this a display or laser
+#define TRAININGS_MODE_NORMAL 0
+#define TRAININGS_MODE_TARGET 1
+
+#ifndef TIME_TYPEDEFS
+#define TIME_TYPEDEFS
+typedef int32_t timeMs_t;
+typedef int64_t timeUs_t;
+#endif
 
 SPIFFSLogic spiffsLogic = SPIFFSLogic();
 
-uint32_t timeForSize(uint8_t size);
+int64_t timeForSize(uint8_t size);
 MasterSlave masterSlave(false, timeForSize);
 SSD1306Wire  display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED); // addr , freq , i2c group , resolution , rst
 SX1262 radio = new Module(LoRa_nss, LoRa_dio1, LoRa_nrst, LoRa_busy);
@@ -49,7 +56,7 @@ volatile bool receivedFlag = false;
 uint64_t sendingUntilUs = 0;
 
 size_t loops = 0;
-uint32_t lastHzMeasuredMs = 0;
+timeMs_t lastHzMeasuredMs = 0;
 uint32_t loopHz = 0;
 
 /**
@@ -89,6 +96,14 @@ TimeInput* targetTimeInput;
 NumberField* targetMetersInput;
 NumberField* targetMetersPerLapInput;
 Select* stationTypeSelect;
+CheckBox* wifiEnabledCB;
+Select* isDisplaySelect;
+
+TextItem* wifiSSIDText;
+TextItem* wifiPasswdText;
+TextItem* wifiIPText;
+
+char wifiIPStr[30];
 
 
 // Debug items
@@ -98,14 +113,14 @@ NumberField* displayCurrentAfterScaleText;
 NumberField* vBatMeasured;
 NumberField* vBatText;
 NumberField* hzText;
-NumberField* uidText;
+NumberField* uidInput;
 NumberField* freeHeapText;
 NumberField* heapSizeText;
+NumberField* laserValue;
 
 
 
 Menu* connectionsMenuMaster;
-Menu* connectionsMenuSlave;
 Menu* viewerMenu;
 Menu* targetTimeMenu;
 SubMenu* targetTimeSubMenu;
@@ -113,7 +128,7 @@ SubMenu* targetTimeSubMenu;
 FrameSection* frameSections = new FrameSection[5];
 
 volatile uint32_t triggerCount = 0;
-volatile uint32_t lastTriggerMs;
+volatile timeMs_t lastTriggerMs = 0;
 
 void msOverlay(ScreenDisplay *display, DisplayUiState* state);
 OverlayCallback overlayCallbacks[] = { msOverlay };
@@ -128,17 +143,9 @@ bool isTriggered() {
   return !digitalRead(PIN_LASER);
 }
 
-void masterTrigger(uint32_t masterTimeMs, uint16_t millimeters, uint8_t triggerType) {
-  spiffsLogic.addTrigger(masterTimeMs, millimeters, triggerType);
-}
+void updateViewer(); // found in GuiLogic
 
-/**
- * Some classes
- */
-#ifndef TRIGGER_DEFINED
-#define TRIGGER_DEFINED
-struct Trigger {
-  uint32_t timeMs; // overflows after 50 days
-  uint16_t macAddress;
-};
-#endif
+void masterTrigger(timeMs_t masterTimeMs, uint16_t millimeters, uint8_t triggerType) {
+  spiffsLogic.addTrigger(masterTimeMs, millimeters, triggerType);
+  updateViewer();
+}

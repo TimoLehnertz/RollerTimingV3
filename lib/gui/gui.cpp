@@ -87,8 +87,6 @@ bool Menu::handleEvent(GUIProcessedEvent event) {
         case PROCESSED_EVENT_SCROLL_DOWN: {
             for (int16_t newActiveItem = activeItem + 1; newActiveItem <= menuItemsCount; newActiveItem++) { // <= because of back button
                 if(getItem(newActiveItem)->isSelectable() && !getItem(newActiveItem)->isHidden()) {
-                    getItem(activeItem)->setHighlighted(false);
-                    getItem(newActiveItem)->setHighlighted(true);
                     scrollToItem(newActiveItem);
                     activeItem = newActiveItem;
                     break;
@@ -99,8 +97,6 @@ bool Menu::handleEvent(GUIProcessedEvent event) {
         case PROCESSED_EVENT_SCROLL_UP: {
             for (int16_t newActiveItem = activeItem - 1; newActiveItem >= 0; newActiveItem--) {
                 if(getItem(newActiveItem)->isSelectable() && !getItem(newActiveItem)->isHidden()) {
-                    getItem(activeItem)->setHighlighted(false);
-                    getItem(newActiveItem)->setHighlighted(true);
                     scrollToItem(newActiveItem);
                     activeItem = newActiveItem;
                     break;
@@ -116,7 +112,6 @@ bool Menu::handleEvent(GUIProcessedEvent event) {
 void Menu::closeSubMenu() {
     targetX = 0;
     scrollToItem(activeItem);
-    getFocusedItem()->setHighlighted(true);
 }
 
 void Menu::openSubMenu() {
@@ -135,7 +130,12 @@ void Menu::scrollToItem(size_t index) {
         if(getItem(i)->isHidden()) continue;
         itemTop += getItem(i)->getHeight() + gap;
     }
+    for (size_t i = 0; i <= menuItemsCount; i++) { // include back button
+        getItem(i)->setHighlighted(false);
+    }
+    
     targetY = itemTop - getItem(index)->getHeight() / 2.0 - 32 + 5;
+    getItem(index)->setHighlighted(true);
 }
 
 void Menu::removeFocus(){
@@ -149,13 +149,11 @@ void Menu::removeFocus(){
 
 void Menu::focus() {
     x = 0;
-    getItem(activeItem)->setHighlighted(false);
     while(true) { // trusting that at least the back button is visible and selectable
         if(getItem(activeItem)->isHidden() || !getItem(activeItem)->isSelectable()) {
             activeItem++;
         } else {
             scrollToItem(activeItem);
-            getItem(activeItem)->setHighlighted(true);
             break;
         }
     }
@@ -164,6 +162,19 @@ void Menu::focus() {
 void Menu::addItem(MenuItem* item) {
     if(menuItemsCount >= MAX_MENU_ITEM_COUT) return;
     menuItems[menuItemsCount++] = item;
+}
+
+void Menu::prependItem(MenuItem* item, bool autoscroll) {
+    if(menuItemsCount >= MAX_MENU_ITEM_COUT) return;
+    for (size_t i = menuItemsCount; i > 0; i--) {
+        menuItems[i] = menuItems[i - 1];
+    }
+    menuItems[0] = item;
+    menuItemsCount++;
+    if(autoscroll) {
+        activeItem++;
+    }
+    scrollToItem(activeItem);
 }
 
 void Menu::removeItem(MenuItem* item) {
@@ -175,6 +186,12 @@ void Menu::removeItem(MenuItem* item) {
             menuItemsCount--;
         }
     }
+    scrollToItem(activeItem);
+}
+
+void Menu::removeAll() {
+    menuItemsCount = 0;
+    scrollToItem(0);
 }
 
 UIManager::UIManager(DisplayUi* displayUI) {

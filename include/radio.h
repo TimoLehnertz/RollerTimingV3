@@ -2,7 +2,7 @@
 
 #include <Global.h>
 
-uint32_t timeForSize(uint8_t size) {
+int64_t timeForSize(uint8_t size) {
   return radio.getTimeOnAir(size);
 }
 

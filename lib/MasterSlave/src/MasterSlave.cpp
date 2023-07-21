@@ -250,7 +250,7 @@ void MasterSlave::sendMaserComunication(uint8_t comunication, uint8_t connection
             break;
         }
     }
-    nextMasterSendUs = micros() + calculateMaxTimeForFrameType(comunications[currentComunication].frameType) + comunicationDelay;
+    nextMasterSendUs = micros() + calculateMaxTimeForFrameType(comunications[currentComunication].frameType) + comunicationDelay * 1000;
 }
 
 uint64_t MasterSlave::calculateMaxTimeForFrameType(uint8_t frameType) {
@@ -309,8 +309,9 @@ void MasterSlave::processFrameAsMaster(Frame& frame, size_t size) {
         *((uint32_t*) &writeFrame.data[1]) = *((uint32_t*) &frame.data[1]); // slaves random number
         writeFrame.frameType = FRAME_TYPE_MASTER_YOU_ARE_NOW_CONNECTED;
         writeFrameSize = FRAME_HEADER_SIZE + sizeof(uint8_t) + sizeof(uint32_t);
+        nextMasterSendUs = micros() + PAUSE_TILL_RESPONSE_US + comunicationDelay * 1000 + TIMEOUT_US * 3;
+        sendTimeUs = micros() + PAUSE_TILL_RESPONSE_US;
         addConnection(frame.data[0]);
-        nextMasterSendUs = micros() + PAUSE_TILL_RESPONSE_US + comunicationDelay + TIMEOUT_US;
         return;
     }
     if(frame.frameType > FRAME_TYPE_MAX && frame.frameType != comunications[currentComunication].frameType) { // check for errors
@@ -344,7 +345,7 @@ void MasterSlave::processFrameAsMaster(Frame& frame, size_t size) {
     if(currentConnection < connectionSize) {
         connections[currentConnection].receivedPackets++;
     }
-    nextMasterSendUs = micros() + PAUSE_TILL_RESPONSE_US + comunicationDelay;
+    nextMasterSendUs = micros() + PAUSE_TILL_RESPONSE_US + comunicationDelay * 1000;
 }
 
 void MasterSlave::removeComunication(uint8_t index) {
@@ -372,7 +373,7 @@ void MasterSlave::processFrameAsSlave(Frame& frame, size_t size) {
             break;
         }
         case FRAME_TYPE_MASTER_HEY_PLEASE_CONNECT_TO_ME: {
-            if(masterConnected || millis() - lastConnectionAttempt < MASTER_SLAVE_TIMEOUT_MS) return;
+            if(masterConnected || millis() - lastConnectionAttempt < MASTER_SLAVE_TIMEOUT_MS + 500) return;
             Serial.println("master wants me to connect");
             writeFrame.address = ADDRESS_MASTER;
             writeFrame.frameType = FRAME_TYPE_SLAVE_I_WANT_TO_CONNECT;
@@ -391,7 +392,7 @@ void MasterSlave::processFrameAsSlave(Frame& frame, size_t size) {
                 Serial.println("Connected to master");
                 if(slaveFoundMasterCallback) slaveFoundMasterCallback(address);
             } else {
-                Serial.println("Master didnt connect to accept me");
+                Serial.println("Master didnt accept to connect to me");
             }
             break;
         }
@@ -406,6 +407,7 @@ void MasterSlave::processFrameAsSlave(Frame& frame, size_t size) {
             writeFrame.frameType = frame.frameType;
             comunications[comunicationIndex].slaveCallback(frame.data, size - FRAME_HEADER_SIZE, (uint8_t*) &writeFrame.data, &responseSize);
             writeFrameSize = responseSize + FRAME_HEADER_SIZE;
+            break;
         }
     }
     sendTimeUs = micros() + PAUSE_TILL_RESPONSE_US;

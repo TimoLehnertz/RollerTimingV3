@@ -8,7 +8,7 @@
 
 #define TIMEOUT_US 100000 // maximum waiting time for responses
 
-#define MASTER_SLAVE_TIMEOUT_MS 3000
+#define MASTER_SLAVE_TIMEOUT_MS 5000
 #define PAUSE_TILL_RESPONSE_US 10000
 
 #define MAX_COMUNICATION_SIZE 10
@@ -67,7 +67,7 @@ typedef void(*SlaveCallback)(uint8_t* data, uint8_t dataSize, uint8_t* response,
  */
 typedef void(*MasterReceiveCallback)(uint8_t* data, uint8_t size, uint8_t slaveAddress);
 
-typedef uint32_t(*TimeForSize)(uint8_t size);
+typedef int64_t(*TimeForSize)(uint8_t size);
 
 typedef void (*SlaveFoundMasterCallback)(uint8_t ownAddress);
 typedef void (*SlaveLostMasterCallback)();
@@ -100,12 +100,12 @@ struct Comunication {
 
 struct Connection {
     Connection() {}
-    Connection(uint8_t address, uint32_t lastPacketMs) : address(address), lastPacketMs(lastPacketMs), timeouts(0), receivedPackets(0), attemptedPackets(0), lq(0) {}
+    Connection(uint8_t address, int32_t lastPacketMs) : address(address), lastPacketMs(lastPacketMs), timeouts(0), receivedPackets(0), attemptedPackets(0), lq(0) {}
     uint8_t address;
-    uint32_t lastPacketMs;
+    int32_t lastPacketMs;
     uint8_t timeouts;
-    uint32_t receivedPackets;
-    uint32_t attemptedPackets;
+    int16_t receivedPackets;
+    int16_t attemptedPackets;
     uint8_t lq; // percentage from 0 to 100. 0 => 0 packets received, 100 => all packets received
 };
 
@@ -135,7 +135,8 @@ public:
 
     bool isMasterConnected();
 
-    void setComunicationDelay(uint32_t comunicationDelayMs) {
+    void setComunicationDelay(int32_t comunicationDelayMs) {
+        if(comunicationDelayMs < 0) return;
         this->comunicationDelay = comunicationDelayMs;
     }
 
@@ -153,7 +154,7 @@ private:
 
     uint32_t slaveConnectionRandom;
 
-    uint32_t comunicationDelay;
+    int32_t comunicationDelay;
 
     Comunication comunications[MAX_COMUNICATION_SIZE];
     size_t comunicationsSize;
@@ -170,14 +171,16 @@ private:
     uint64_t lastMasterFrame;
     bool masterConnected; // only for slaves
 
-    uint32_t lastConnectionAttempt;
+    int32_t lastConnectionAttempt;
 
     bool currentComunicationReceived;
 
-    uint32_t lastLQCalcMs;
+    int32_t lastLQCalcMs;
 
     // time to send next packet
     uint64_t sendTimeUs;
+
+
 
     Comunication* ConnectionRequestcomunication;
 

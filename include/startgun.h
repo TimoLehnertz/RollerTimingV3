@@ -1,3 +1,13 @@
+/**
+ * @file startgun.h
+ * @author Timo Lehnertz
+ * @brief Start gun logic for all hardware
+ * @version 0.1
+ * @date 2023-07-19
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ */
 #pragma once
 #include <Arduino.h>
 #include <Global.h>
@@ -6,15 +16,15 @@
 
 bool startgunStarted = false;
 
-uint32_t startgunInPositionMs = 0;
-uint32_t startgunSetMs = 0;
-uint32_t startgunGoMs = 0;
+timeMs_t startgunInPositionMs = 0;
+timeMs_t startgunSetMs = 0;
+timeMs_t startgunGoMs = 0;
 
 uint8_t startgunPhase = 0;
 
-uint32_t startgunLastBeep = 0;
+timeMs_t startgunLastBeep = 0;
 
-uint32_t startgunClearPopup = UINT32_MAX;
+timeMs_t startgunClearPopup = INT32_MAX;
 
 double randomDouble(double minRand, double maxRand) {
     return minRand + (maxRand - minRand) * random(100000) / 100000.0;

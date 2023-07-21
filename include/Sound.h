@@ -1,26 +1,35 @@
+/**
+ * @file Sound.h
+ * @author Timo Lehnertz
+ * @brief All sound related logic
+ * @version 0.1
+ * @date 2023-07-19
+ * 
+ * @copyright Copyright (c) 2023
+ * 
+ */
 #pragma once
 #include <Arduino.h>
 #include <Global.h>
-#include <LinkedList.h>
 
 struct Beep {
 
     Beep() : frequency(0), onDuration(0), offDuration(0), beeps(0), pauseAfterBeep(0) {}
-    Beep(uint32_t pauseAfterBeep, unsigned int frequency, unsigned int onDuration) : frequency(frequency), onDuration(onDuration), offDuration(0), beeps(1), pauseAfterBeep(pauseAfterBeep) {}
-    Beep(uint32_t pauseAfterBeep, unsigned int frequency, unsigned int onDuration, unsigned int offDuration, byte beeps) : frequency(frequency), onDuration(onDuration), offDuration(offDuration), beeps(beeps), pauseAfterBeep(pauseAfterBeep) {}
+    Beep(timeMs_t pauseAfterBeep, unsigned int frequency, unsigned int onDuration) : frequency(frequency), onDuration(onDuration), offDuration(0), beeps(1), pauseAfterBeep(pauseAfterBeep) {}
+    Beep(timeMs_t pauseAfterBeep, unsigned int frequency, unsigned int onDuration, unsigned int offDuration, byte beeps) : frequency(frequency), onDuration(onDuration), offDuration(offDuration), beeps(beeps), pauseAfterBeep(pauseAfterBeep) {}
 
     unsigned int frequency;
     unsigned int onDuration;
     unsigned int offDuration;
     byte beeps;
 
-    uint32_t pauseAfterBeep;
+    timeMs_t pauseAfterBeep;
 
-    uint32_t getFullDuration() {
+    timeMs_t getFullDuration() {
         return (onDuration + offDuration) * beeps - offDuration + pauseAfterBeep;
     }
 
-    uint32_t beep() {
+    timeMs_t beep() {
         // EasyBuzzer.beep(
         //     4500,		// Frequency in hertz(HZ). 
         //     20, 	// On Duration in milliseconds(ms).
@@ -46,7 +55,7 @@ struct Sound {
 };
 
 Sound currentSound;
-uint32_t nextBeep = UINT32_MAX;
+timeMs_t nextBeep = UINT32_MAX;
 
 void playSound(Sound sound) {
     if(sound.beepsSize == 0) return;

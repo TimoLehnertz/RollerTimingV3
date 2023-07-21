@@ -3,8 +3,14 @@
 #include <images.h>
 #include <EasyBuzzer.h>
 
+#ifndef TIME_TYPEDEFS
+#define TIME_TYPEDEFS
+typedef int32_t timeMs_t;
+typedef int64_t timeUs_t;
+#endif
+
 #define MAX_ENTER_TIME_MS 500
-#define MAX_MENU_ITEM_COUT 15
+#define MAX_MENU_ITEM_COUT 50
 
 #define MAX_SELECT_OPTIONS 5
 
@@ -130,16 +136,33 @@ protected:
 
 class TextItem : public MenuItem {
 public:
-    TextItem(const char* text, bool selectable = false) : MenuItem(selectable, 10) {
+    TextItem(const char* text, bool selectable = false, DISPLAY_TEXT_ALIGNMENT textAlignment = DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_CENTER) : MenuItem(selectable, 10) {
         this->text = text;
+        this->textAlignment = textAlignment;
     }
 
     void renderComponent(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) override {
-        display->setTextAlignment(TEXT_ALIGN_CENTER);
+        display->setTextAlignment(textAlignment);
         display->setFont(ArialMT_Plain_10);
-        display->drawString(x + 64, y, text);
-        // display->drawLine(x + 5, y + 5, x + 10, y + 5);
-        // display->drawLine(x + 128 - 10, y + 5, x + 128 - 5, y + 5);
+        switch(textAlignment) {
+            case DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_CENTER_BOTH: {
+                display->drawString(x + 64, y + 5, text);
+                break;
+            }
+            case DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_CENTER: {
+                display->drawString(x + 64, y, text);
+                break;
+            }
+            case DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT: {
+                display->drawString(x + 12, y, text);
+                break;
+            }
+            case DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_RIGHT: {
+                display->drawString(x + 128 - 2, y, text);
+                break;
+            }
+        }
+        
     }
 
     bool handleEvent(GUIProcessedEvent event) {
@@ -156,6 +179,28 @@ public:
 
 private:
     const char* text;
+    DISPLAY_TEXT_ALIGNMENT textAlignment;
+};
+
+class Seperator : public MenuItem {
+public:
+    Seperator() : MenuItem(false, 1) {}
+
+    void renderComponent(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) override {
+        display->drawLine(x, y, x + 128, y);
+    }
+
+    bool handleEvent(GUIProcessedEvent event) override {
+        return true;
+    }
+
+    bool focus() override {
+        return true;
+    }
+
+    void removeFocus() override {
+        
+    }
 };
 
 class Button : public MenuItem {
@@ -358,8 +403,8 @@ protected:
     bool isEditable;
     size_t consecutiveIncrements;
     size_t consecutiveDecrements;
-    uint32_t lastIncrement;
-    uint32_t lastDecrement;
+    timeMs_t lastIncrement;
+    timeMs_t lastDecrement;
 };
 
 class TimeInput : public NumberField {
@@ -411,7 +456,11 @@ public:
 
     void addItem(MenuItem* item);
 
+    void prependItem(MenuItem* item, bool autoscroll);
+
     void removeItem(MenuItem* item);
+
+    void removeAll();
 
     MenuItem* getItem(size_t index);
 
@@ -520,7 +569,8 @@ public:
         for (size_t i = 0; i < checkboxesSize; i++) {
             checkboxes[i]->setChecked(false);
         }
-        checkboxes[value]->setChecked(true); 
+        checkboxes[value]->setChecked(true);
+        this->value = value;
     }
 
     uint8_t getValue() {
@@ -681,7 +731,7 @@ private:
     bool sectionFocused;
     bool mouseDown;
     int64_t mouseDownMs;
-    uint32_t backBtnAction;
+    timeMs_t backBtnAction;
     static const char* message;
 
     GUIProcessedEvent processEvent(GUIInputEvent event);

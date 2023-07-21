@@ -8,7 +8,6 @@
  * @copyright Copyright (c) 2023
  * 
  */
-
 #include <Arduino.h>
 #include <Global.h>
 #include <EasyBuzzer.h>
@@ -21,6 +20,7 @@
 #include <MasterSlaveLogic.h>
 #include <WiFiLogic.h>
 #include <Sound.h>
+#include <DoubleLinkedList.h>
 
 void handleBattery() {
   float voltageDividerMeasured = analogRead(PIN_VBAT) / 4095.0 * 3.3;
@@ -42,6 +42,10 @@ void handleBattery() {
 void trigger() {
   triggerCount++;
   lastTriggerMs = millis();
+}
+
+bool cmp(const int& a, const int& b) {
+    return a > b;
 }
 
 void setup() {
@@ -73,27 +77,23 @@ void setup() {
 
 
 void handleTriggers() {
-  if(displayStation) return;
-  static uint32_t lastTimeTriggeredMs = 0;
-  static uint32_t lastTriggerCount = 0;
+  if(isDisplaySelect->getValue()) return;
+  static timeMs_t lastTimeTriggeredMs = 0;
+  static timeMs_t lastTriggerCount = 0;
   if(lastTriggerCount != triggerCount) {
     lastTriggerCount = triggerCount;
-    if(lastTriggerMs - lastTimeTriggeredMs < minDelayInput->getValue() * 1000) {
+    if(lastTriggerMs - lastTimeTriggeredMs < minDelayInput->getValue() * 1000 && lastTimeTriggeredMs != 0) {
       return;
     }
     lastTimeTriggeredMs = millis();
     EasyBuzzer.beep(3800, 20, 100, 1,  100, 1);
-    if(isMasterCB->isChecked()) {
-
-    } else {
+    if(!isMasterCB->isChecked()) {
       slaveTrigger(lastTriggerMs, stationTypeSelect->getValue());
     }
   }
 }
 
 void loop() {
-  // if(millis() % 100 == 0)
-  //   Serial.println(analogRead(PIN_LASER));
   handleTriggers();
   handleRadioReceive();
   handleradioSend();
@@ -102,9 +102,9 @@ void loop() {
   handleLEDS();
   handleRotary();
   handleBattery();
-  beginWiFi();
   handleSounds();
   handleStartgun();
+  handleWiFi();
   EasyBuzzer.update();
   loops++;
   if(millis() - lastHzMeasuredMs > 1000) {
