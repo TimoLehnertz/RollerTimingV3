@@ -12,19 +12,91 @@
 #include <Arduino.h>
 #include <Global.h>
 #include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
+#include <DNSServer.h>
+#include <SPIFFS.h>
+#include <JsonBuilder.h>
+#include <SPIFFSLogic.h>
 
-uint16_t uid;
+const char* wifiSsid = "Roller-Timing";
+const char* wifiPassword = "Speedskate";
 
-void beginWiFi() {
-    WiFi.mode(WIFI_STA);
-    uint8_t mac[6];
-    WiFi.macAddress(mac);
-    uid = *((uint16_t*)&mac[5]);
+DNSServer dnsServer;
+AsyncWebServer server(80);
+
+bool wifiRunning = false;
+
+void handleIndex() {
+
 }
 
-/**
- * @return uint16_t the last 2 bytes of the mac hoping that those uniquely identify each chip
- */
+// ?
+String processor(const String& var){
+  return String();
+}
+
+void beginWiFi() {
+    Serial.println("Starting WiFi");
+    WiFi.softAP(wifiSsid, wifiPassword);
+    dnsServer.start(53, "*", WiFi.softAPIP());
+    IPAddress ip = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(ip);
+    sprintf(wifiIPStr, "IP: %s", ip.toString());
+    Serial.println("wifiStatusStr:");
+    Serial.println(wifiIPStr);
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(SPIFFS, "/index.html", String(), false, processor);
+    });
+    server.on("/loadmore.json", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DoubleLinkedList<SessionMetadata>* metas = spiffsLogic.getSessionMetas();
+        JsonBuilder builder = JsonBuilder();
+        builder.startObject();
+        builder.addKey("sessions");
+        builder.startArray();
+        for (SessionMetadata &&metadata : metas) {
+            builder.startObject();
+            builder.addKey("TriggerCount");
+            builder.addValue(metadata.id);
+            builder.endObject();
+        }
+        builder.endArray();
+        
+        builder.endObject();
+    });
+    server.begin();
+    
+}
+
+void endWiFi() {
+    Serial.println("Stopping WiFi");
+    server.end();
+    WiFi.enableAP(false);
+    WiFi.softAPdisconnect();
+}
+
 uint16_t getUid() {
-    return uid;
+    return uidInput->getValue();
+    // return uid;
+}
+
+void updateWiFiUI() {
+
+}
+
+void setWiFiActive(bool active) {
+    if(active == wifiRunning) return;
+    if(!active) {
+        endWiFi();
+    }
+    if(active) {
+        beginWiFi();
+    }
+    wifiRunning = active;
+}
+
+void handleWiFi() {
+    if(!wifiRunning) return;
+    // WiFiClient client = server.available();
 }
