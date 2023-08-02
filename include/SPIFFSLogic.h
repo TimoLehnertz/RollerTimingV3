@@ -48,85 +48,90 @@ bool sortCompareTriggers(const Trigger& a, const Trigger& b) {
   return a.timeMs < b.timeMs;
 }
 
-struct SessionMetadata {
-  SessionMetadata() : id(0), valid(false) {}
-  SessionMetadata(uint16_t id) : id(id), valid(true) {}
-  uint16_t id; // index of session. Should be unique for all sessions
-  bool valid;
-  union {
-    uint8_t data[20]; // reserved
-    struct {
-      
-    };
-  };
+struct TrainingsMeta {
+  size_t fileSize;
+  String fileName;
 };
 
-struct TrainingsSession {
+struct TrainingsSession : protected DoubleLinkedList<Trigger> {
 public:
-  TrainingsSession() : metaData(SessionMetadata()), triggers(DoubleLinkedList<Trigger>()), path(String()) {}
-  TrainingsSession(uint16_t id) : metaData(SessionMetadata(id)), triggers(DoubleLinkedList<Trigger>()) {
-    path = String() + sessionsPath + "/" + getFileName();
+  TrainingsSession(): DoubleLinkedList() {
+    this->path = String() ;
+    this->laps = 0;
+    this->filenName = String();
+    this->write = false;
+    this->isLoaded = false;
   }
 
-  void begin() {
-    
+  TrainingsSession(String fileName, bool write) : DoubleLinkedList() {
+    this->path = String(sessionsPath) + "/" + getFileName();
+    this->laps = 0;
+    this->filenName = fileName;
+    this->write = write;
+    this->isLoaded = write;
   }
 
-  void end() {
-    
-  }
-
-  void addTrigger(timeMs_t timeMs, uint16_t millimeters, uint8_t triggerType) {
-    if(triggers.getSize() == 0) { // this is the first trigger
-      File file;
-      file = SPIFFS.open(path, FILE_WRITE, true);
-      size_t size = file.write((uint8_t*) &metaData, sizeof(SessionMetadata));
-      if(size != sizeof(SessionMetadata)) {
-        Serial.println("Error writing .rrt header");
-        return;
-      }
-      file.close();
+  bool loadFromStorage() {
+    if(isLoaded) return true;
+    clear();
+    if(!SPIFFS.exists(path)) return false;
+    File file = SPIFFS.open(path, FILE_READ, false);
+    while(file.available() >= sizeof(Trigger)) {
+      Trigger trigger;
+      file.readBytes((char*) &trigger, sizeof(Trigger));
+      pushBack(trigger);
     }
-    Trigger trigger = Trigger { timeMs, millimeters, triggerType };
+    return true;
+  }
+
+  void addTrigger(Trigger trigger) {
+    if(!write) return;
     File file = SPIFFS.open(path, FILE_APPEND, true);
     size_t written = file.write((uint8_t*) &trigger, sizeof(Trigger));
     file.close();
     if(written != sizeof(Trigger)) {
       Serial.println("Failed to write Trigger");
     }
-    triggers.pushBack(trigger); // add and sort in ram
+    pushBack(trigger); // add and sort in ram
     sortTriggers();
-  }
-
-  void sortTriggers() {
-    triggers.sort(sortCompareTriggers);
-  }
-
-  size_t getTriggerCount() {
-    return triggers.getSize();
-  }
-
-  timeMs_t getTimeSinceLastTrigger() {
-    if(triggers.getSize() == 0) return 0;
-    return millis() - triggers.getLast()->timeMs;
-  }
-
-  Trigger* getTrigger(size_t index) {
-    try  {
-      return triggers.get(index);
-    } catch(const std::out_of_range& e) {
-      return nullptr;
+    if(trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH || trigger.triggerType == STATION_TRIGGER_TYPE_FINISH) {
+      laps++;
     }
   }
 
-  size_t getLapsCount() {
-    if(triggers.getSize() == 0) return 0;
-    return triggers.getSize() - 1;
+  size_t getFileSize() {
+    File file = SPIFFS.open(path);
+    if(!file) return 0;
+    return file.size();
   }
 
+  void sortTriggers() {
+    sort(sortCompareTriggers);
+  }
+
+  size_t getTriggerCount() {
+    return getSize();
+  }
+
+  timeMs_t getTimeSinceLastTrigger() {
+    if(getSize() == 0) return 0;
+    return millis() - getLast().timeMs;
+  }
+
+  const Trigger& getTrigger(size_t index) {
+    return get(index);
+  }
+
+  size_t getLapsCount() {
+    return laps;
+  }
+
+  /**
+   * Looks for all types of triggers
+  */
   timeMs_t getLastLapMs() {
-    if(triggers.getSize() < 2) return 0;
-    return triggers.get(triggers.getSize() - 1)->timeMs - triggers.get(triggers.getSize() - 2)->timeMs;
+    if(getSize() < 2) return 0;
+    return getLast().timeMs - get(getSize() - 2).timeMs;
   }
 
   String getFilePath() {
@@ -134,29 +139,22 @@ public:
   }
 
   String getFileName() {
-    return String(metaData.id) + ".rrt";
-  }
-
-  SessionMetadata getSessionMeta() {
-    return metaData;
-  }
-
-  bool isValid() {
-    return metaData.valid;
+    return filenName;
   }
 private:
-  SessionMetadata metaData;
-  DoubleLinkedList<Trigger> triggers;
   String path;
+  String filenName;
+  size_t laps;
+  bool write;
+  bool isLoaded;
 };
 
 class SPIFFSLogic {
 public:
   SPIFFSLogic() {
     this->running = false;
-    this->sessionMetas = DoubleLinkedList<SessionMetadata>();
-    this->currentSession = TrainingsSession(); // invalid session
-    this->sessionLoaded = false;
+    this->activeTraining = TrainingsSession();
+    this->trainingsMetas = DoubleLinkedList<TrainingsMeta>();
   }
 
   bool begin() {
@@ -179,60 +177,46 @@ public:
     
     File sessionsDir = SPIFFS.open(sessionsPath);
     while(File sessionFile = sessionsDir.openNextFile()) {
-      if(sessionFile.size() < sizeof(SessionMetadata)) {
-        sessionMetas.pushBack(SessionMetadata());
-        continue;
+      if(sessionFile.size() < sizeof(Trigger)) {
+        continue; // skip broken file
       }
-      SessionMetadata sessionMeta = SessionMetadata();
-      sessionFile.readBytes((char*) &sessionMeta, sizeof(SessionMetadata));
-      sessionMetas.pushBack(sessionMeta);
+      TrainingsMeta trainingsMeta = TrainingsMeta();
+      trainingsMeta.fileName = String(sessionFile.name());
+      trainingsMeta.fileSize = sessionFile.size();
+      trainingsMetas.pushBack(trainingsMeta);
       sessionFile.close();
     }
     sessionsDir.close();
-    Serial.printf("Found %i session files\n", sessionMetas.getSize());
+    Serial.printf("Found %i session files\n", trainingsMetas.getSize());
     running = true;
     return true;
   }
 
-  bool addTrigger(timeMs_t timeMs, uint16_t millimeters, uint8_t triggerType) {
-    if(!currentSession.isValid() || !this->sessionLoaded) return false;
-    currentSession.addTrigger(timeMs, millimeters, triggerType);
-    return true;
+  void addTrigger(const Trigger& trigger) {
+    activeTraining.addTrigger(trigger);
   }
 
   bool startNewSession() {
     if(!running) return false;
-    if(sessionLoaded) {
-      endSession();
+    if(activeTraining.getFileSize() > 0) {
+      trainingsMetas.pushBack(TrainingsMeta{ activeTraining.getFileSize(), activeTraining.getFileName() });
     }
-    currentSession = TrainingsSession(getIdForNewSession());
-    sessionMetas.pushBack(currentSession.getSessionMeta());
-    currentSession.begin();
-    this->sessionLoaded = true;
+    activeTraining = TrainingsSession(getFileNameForNewTraining(), true);
     return true;
   }
 
-  bool endSession() {
-    if(!running) return false;
-    currentSession.end();
-    this->sessionLoaded = false;
-    return true;
+  const DoubleLinkedList<TrainingsMeta>& getTrainingsMetas() {
+    return trainingsMetas;
   }
 
-  TrainingsSession* getCurrentSession() {
-    if(!sessionLoaded) return nullptr;
-    return &currentSession;
-  }
-
-  DoubleLinkedList<SessionMetadata>* getSessionMetas() {
-    return &sessionMetas;
+  TrainingsSession& getActiveTraining() {
+    return activeTraining;
   }
 
 private:
   bool running;
-  DoubleLinkedList<SessionMetadata> sessionMetas; // read only
-  TrainingsSession currentSession;
-  bool sessionLoaded;
+  DoubleLinkedList<TrainingsMeta> trainingsMetas;
+  TrainingsSession activeTraining;
 
   void listFiles(File& dir, uint8_t intends = 0) {
     if(!dir.isDirectory()) { // file
@@ -248,15 +232,12 @@ private:
     }
   }
 
-  uint16_t getIdForNewSession() {
-    uint16_t maxId = 0;
-    for (auto &sessionMeta : sessionMetas) {
-      maxId = max(maxId, sessionMeta.id);
+  String getFileNameForNewTraining() {
+    File sessionsDir = SPIFFS.open(String(sessionsPath));
+    int maxId = 0;
+    for (TrainingsMeta &trainingsMeta : trainingsMetas) {
+      maxId = max(maxId, trainingsMeta.fileName.toInt());
     }
-    
-    // for (size_t i = 0; i < sessionMetas.getSize(); i++) {
-    //   maxId = max(maxId, sessionMetas.get(i).id);
-    // }
-    return maxId + 1;
+    return String(maxId + 1) + ".rt";
   }
 };

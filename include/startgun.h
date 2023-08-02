@@ -13,6 +13,7 @@
 #include <Global.h>
 #include <Sound.h>
 #include <MasterSlaveLogic.h>
+#include <SPIFFSLogic.h>
 
 bool startgunStarted = false;
 
@@ -78,7 +79,7 @@ void handleStartgun() {
                 startgunPhase = 0;
                 startgunStarted = false;
                 if(masterSlave.isMaster()) {
-                    masterTrigger(millis(), 0, STATION_TRIGGER_TYPE_START); // 0 millimeters
+                    masterTrigger(Trigger{ timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_START }); // 0 millimeters
                 } else {
                     slaveTrigger(millis(), STATION_TRIGGER_TYPE_START);
                 }

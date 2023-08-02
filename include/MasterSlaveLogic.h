@@ -153,11 +153,11 @@ void triggersSlaveDataCallback(uint8_t* data, uint8_t dataSize, uint8_t* respons
             slaveToMaster.rebootedFlag = true;
         } else {
             for (size_t i = masterToSlave->triggerIndex; i < min(int(slaveTriggers.getSize()), int(masterToSlave->triggerIndex + 1)); i++) { // send max 1 triggers
-                Trigger* trigger = slaveTriggers.get(i);
-                slaveToMaster.trigger = *trigger;
-                slaveToMaster.trigger.timeMs = localTimeToMasterTime(trigger->timeMs); // convert time
+                Trigger& trigger = slaveTriggers.get(i);
+                slaveToMaster.trigger = trigger;
+                slaveToMaster.trigger.timeMs = localTimeToMasterTime(trigger.timeMs); // convert time
                 slaveToMaster.triggerFlag = true;
-                Serial.printf("Sending trigger of type: %i\n", trigger->triggerType);
+                Serial.printf("Sending trigger of type: %i\n", trigger.triggerType);
             }
         }
     } else {
@@ -185,7 +185,7 @@ void triggersMasterReceiveCallback(uint8_t* data, uint8_t size, uint8_t slaveAdd
         slaveLaser->triggerIndex = 0;
     } else if(slaveToMaster->triggerFlag) {
         slaveLaser->triggerIndex++;
-        masterTrigger(slaveToMaster->trigger.timeMs, slaveLaser->millimeters, slaveToMaster->trigger.triggerType);
+        masterTrigger(slaveToMaster->trigger);
         Serial.printf("Received trigger for master time: %i from uid: %i at address %i, new triggerindex: %i, triggerType: %i\n", slaveToMaster->trigger.timeMs, slaveToMaster->uid, slaveAddress, slaveLaser->triggerIndex, slaveToMaster->trigger.triggerType);
     }
 }

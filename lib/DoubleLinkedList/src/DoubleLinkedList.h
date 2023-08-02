@@ -128,7 +128,7 @@ public:
         size = 0;
     }
 
-    T* get(size_t index) {
+    T& get(size_t index) {
         if(index >= size) {
             throw std::out_of_range("Index out of bounds");
         }
@@ -136,7 +136,7 @@ public:
         size_t i = 0;
         while(current) {
             if(i == index) {
-                return &current->data;
+                return current->data;
             }
             current = current->next;
             i++;
@@ -144,17 +144,17 @@ public:
         throw std::out_of_range("Index out of bounds");
     }
 
-    T* getLast() {
-        if(tail) return &tail->data;
-        return nullptr;
+    T& getLast() const {
+        if(tail) return tail->data;
+        throw std::out_of_range("Index out of bounds");
     }
 
-    T* getFirst() {
-        if(head) return &head->data;
-        return nullptr;
+    T& getFirst() const {
+        if(head) return head->data;
+        throw std::out_of_range("Index out of bounds");
     }
 
-    void pushBack(T value) {
+    void pushBack(const T& value) {
         Node<T>* newNode = new Node<T>(value);
         if (!head) {
             head = tail = newNode;
@@ -166,7 +166,7 @@ public:
         size++;
     }
 
-    void pushFront(T value) {
+    void pushFront(const T& value) {
         Node<T>* newNode = new Node<T>(value);
         if (!head) {
             head = tail = newNode;
@@ -178,7 +178,7 @@ public:
         size++;
     }
 
-    void remove(T value) {
+    void remove(const T& value) {
         Node<T>* current = head;
         while (current) {
             if (current->data == value) {
@@ -201,7 +201,7 @@ public:
         }
     }
 
-    size_t getSize() {
+    size_t getSize() const {
         return size;
     }
 

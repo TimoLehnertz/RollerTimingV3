@@ -145,7 +145,7 @@ bool isTriggered() {
 
 void updateViewer(); // found in GuiLogic
 
-void masterTrigger(timeMs_t masterTimeMs, uint16_t millimeters, uint8_t triggerType) {
-  spiffsLogic.addTrigger(masterTimeMs, millimeters, triggerType);
+void masterTrigger(Trigger trigger) {
+  spiffsLogic.addTrigger(trigger);
   updateViewer();
 }

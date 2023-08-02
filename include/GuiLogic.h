@@ -79,7 +79,6 @@ void isMasterChanged() {
     uiManager.begin(overlayCallbacks, overlaysCount, frameSections, MASTER_FRAMES);
     trainingsModeChanged();
   } else {
-    spiffsLogic.endSession();
     uiManager.begin(overlayCallbacks, overlaysCount, frameSections, SLAVE_FRAMES);
     targetTimeSubMenu->setHidden(true);
   }
@@ -326,8 +325,7 @@ void addLineToViewer() {
 }
 
 void updateViewer() {
-  TrainingsSession* session = spiffsLogic.getCurrentSession();
-  if(!session) return;
+  TrainingsSession& session = spiffsLogic.getActiveTraining();
   viewerMenu->removeAll();
   
   for (size_t i = 0; i < viewerMenuItemCount; i++) {
@@ -339,42 +337,40 @@ void updateViewer() {
     delete[] viewerTimeStrings[i];
   }
   viewerTimeStringsCount = 0;
-  
-  session->sortTriggers(); // probybly not neccessary
 
   timeMs_t lapStart = 0;
   timeMs_t lastTrigger = 0;
   uint16_t lastMillimeters = 0;
-  int16_t lapCount = 1 + max(0, int(session->getTriggerCount()) - VIEWER_MAX_TRIGGERS); // start at 1 to have the first display as 1
+  int16_t lapCount = 1 + max(0, int(session.getTriggerCount()) - VIEWER_MAX_TRIGGERS); // start at 1 to have the first display as 1
   bool checkpointPassed = false;
   bool lapStarted = false;
   uint16_t currentCheckpoint = 0;
-  for (size_t i = max(0, int(session->getTriggerCount()) - VIEWER_MAX_TRIGGERS); i < session->getTriggerCount(); i++) {
-    Trigger* t = session->getTrigger(i);
-    if(lapStarted && (t->triggerType == STATION_TRIGGER_TYPE_FINISH || t->triggerType == STATION_TRIGGER_TYPE_START_FINISH)) {
+  for (size_t i = max(0, int(session.getTriggerCount()) - VIEWER_MAX_TRIGGERS); i < session.getTriggerCount(); i++) {
+    const Trigger& t = session.getTrigger(i);
+    if(lapStarted && (t.triggerType == STATION_TRIGGER_TYPE_FINISH || t.triggerType == STATION_TRIGGER_TYPE_START_FINISH)) {
       char* timeStr = new char[15];
       viewerTimeStrings[viewerTimeStringsCount++] = timeStr;
       if(checkpointPassed) {
-        addCheckpointToViewer(t->timeMs - lastTrigger, t->millimeters, currentCheckpoint, t->triggerType);
+        addCheckpointToViewer(t.timeMs - lastTrigger, t.millimeters, currentCheckpoint, t.triggerType);
       }
-      addLapToViewer(t->timeMs - lapStart, lapCount);
+      addLapToViewer(t.timeMs - lapStart, lapCount);
       addLineToViewer();
       lapStarted = false;
       lapCount++;
     }
-    if(t->triggerType == STATION_TRIGGER_TYPE_START || t->triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
-      lapStart = t->timeMs;
-      lastTrigger = t->timeMs;
+    if(t.triggerType == STATION_TRIGGER_TYPE_START || t.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
+      lapStart = t.timeMs;
+      lastTrigger = t.timeMs;
       lastMillimeters = 0;
       checkpointPassed = false;
       lapStarted = true;
       currentCheckpoint = 0;
     }
-    if(lapStarted && t->triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
-      if(t->millimeters <= lastMillimeters) continue;
-      addCheckpointToViewer(t->timeMs - lastTrigger, t->millimeters, currentCheckpoint, t->triggerType);
-      lastMillimeters = t->millimeters;
-      lastTrigger = t->timeMs;
+    if(lapStarted && t.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
+      if(t.millimeters <= lastMillimeters) continue;
+      addCheckpointToViewer(t.timeMs - lastTrigger, t.millimeters, currentCheckpoint, t.triggerType);
+      lastMillimeters = t.millimeters;
+      lastTrigger = t.timeMs;
       checkpointPassed = true;
       currentCheckpoint++;
     }
@@ -610,16 +606,16 @@ void handleLEDS() {
   lastLEDUpdate = millis();
   FastLED.clear();
   if(isDisplaySelect->getValue()) {
-    TrainingsSession* session = spiffsLogic.getCurrentSession();
+    TrainingsSession& session = spiffsLogic.getActiveTraining();
     size_t laps = 0;
-    if(session && session->getTriggerCount() > 0) {
-      laps = session->getLapsCount();
-      if(session->getTriggerCount() == 1 || session->getTimeSinceLastTrigger() > displayTimeInput->getValue() * 1000) {
-        timeMs_t time = session->getTimeSinceLastTrigger();
+    if(session.getTriggerCount() > 0) {
+      laps = session.getLapsCount();
+      if(session.getTriggerCount() == 1 || session.getTimeSinceLastTrigger() > displayTimeInput->getValue() * 1000) {
+        timeMs_t time = session.getTimeSinceLastTrigger();
         time = time / 100 * 100; // getting last 2 digits to 0
         matrix.printTime(7, 0, time, false);
       } else {
-        matrix.printTime(7, 0, session->getLastLapMs(), false);
+        matrix.printTime(7, 0, session.getLastLapMs(), false);
       }
     } else {
       matrix.printTime(7, 0, 0, false);

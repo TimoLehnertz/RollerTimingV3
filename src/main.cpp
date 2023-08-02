@@ -48,6 +48,7 @@ bool cmp(const int& a, const int& b) {
     return a > b;
 }
 
+
 void setup() {
   Serial.begin(115200);
   // simple
@@ -70,6 +71,7 @@ void setup() {
   // complex with dependencies
   beginPreferences(); // depends on beginLCDDisplay
   beginMasterSlaveLogic(); // depends on beginLCDDisplay
+  // trigge changes
   isMasterChanged();
   isDisplayChanged();
   Serial.println("Setup complete");

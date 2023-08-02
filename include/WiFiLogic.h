@@ -50,15 +50,17 @@ void beginWiFi() {
         request->send(SPIFFS, "/index.html", String(), false, processor);
     });
     server.on("/loadmore.json", HTTP_GET, [](AsyncWebServerRequest *request) {
-        DoubleLinkedList<SessionMetadata>* metas = spiffsLogic.getSessionMetas();
+        const DoubleLinkedList<TrainingsMeta>& metas = spiffsLogic.getTrainingsMetas();
         JsonBuilder builder = JsonBuilder();
         builder.startObject();
         builder.addKey("sessions");
         builder.startArray();
-        for (SessionMetadata &&metadata : metas) {
+        for (TrainingsMeta &metadata : metas) {
             builder.startObject();
-            builder.addKey("TriggerCount");
-            builder.addValue(metadata.id);
+            builder.addKey("FileSize");
+            builder.addValue(int(metadata.fileSize));
+            builder.addKey("FileName");
+            builder.addValue(metadata.fileName);
             builder.endObject();
         }
         builder.endArray();
