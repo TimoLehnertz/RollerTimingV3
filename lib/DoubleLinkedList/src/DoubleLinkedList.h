@@ -154,7 +154,7 @@ public:
         throw std::out_of_range("Index out of bounds");
     }
 
-    void pushBack(const T& value) {
+    size_t pushBack(const T& value) {
         Node<T>* newNode = new Node<T>(value);
         if (!head) {
             head = tail = newNode;
@@ -164,6 +164,7 @@ public:
             tail = newNode;
         }
         size++;
+        return size - 1;
     }
 
     void pushFront(const T& value) {
@@ -198,6 +199,31 @@ public:
                 return;
             }
             current = current->next;
+        }
+    }
+
+    void removeIndex(size_t index) {
+        if(index >= size) return;
+        Node<T>* current = head;
+        size_t currentIndex = 0;
+        while (current) {
+            if (currentIndex == index) {
+                if (current == head) {
+                    head = current->next;
+                    if (head) head->prev = nullptr;
+                } else if (current == tail) {
+                    tail = current->prev;
+                    if (tail) tail->next = nullptr;
+                } else {
+                    current->prev->next = current->next;
+                    current->next->prev = current->prev;
+                }
+                delete current;
+                size--;
+                return;
+            }
+            current = current->next;
+            currentIndex++;
         }
     }
 

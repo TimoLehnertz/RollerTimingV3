@@ -52,6 +52,7 @@ bool cmp(const int& a, const int& b) {
 void setup() {
   Serial.begin(115200);
   // simple
+  Serial.printf("Roller timing v%s\n", VERSION);
   pinMode(PIN_ROTARY_GND, OUTPUT);
   digitalWrite(PIN_ROTARY_GND, LOW);
   beginSounds();

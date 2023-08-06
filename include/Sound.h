@@ -85,19 +85,19 @@ void playSoundStartgunIdle() {
 
 void playSoundStartgunInPosition() {
     Sound sound = Sound();
-    sound.addBeep(Beep(50, 9000, 100, 200, 3));
+    sound.addBeep(Beep(50, 5000, 100, 200, 3));
     playSound(sound);
 }
 
 void playSoundStartgunSet() {
     Sound sound = Sound();
-    sound.addBeep(Beep(50, 9000, 500, 200, 2));
+    sound.addBeep(Beep(50, 5000, 500, 200, 2));
     playSound(sound);
 }
 
 void playSoundStartgunGo() {
     Sound sound = Sound();
-    sound.addBeep(Beep(50, 10000, 500));
+    sound.addBeep(Beep(50, 5500, 500));
     playSound(sound);
 }
 

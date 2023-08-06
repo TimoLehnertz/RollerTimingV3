@@ -180,6 +180,10 @@ void msOverlay(ScreenDisplay *display, DisplayUiState* state) {
   display->setFont(ArialMT_Plain_10);
   display->setTextAlignment(TEXT_ALIGN_LEFT);
   display->drawString(0, 0, String(strConnection));
+  if(isDisplaySelect->getValue() == 0) {
+    display->setTextAlignment(TEXT_ALIGN_RIGHT);
+    display->drawString(128, 0, String(stationTypeSelect->getSelectedShort()));
+  }
 }
 
 void drawFrameWiFi(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
@@ -394,7 +398,11 @@ void trainingsModeChanged() {
 }
 
 void stationTypeChanged() {
-  distFromStartInput->setHidden(stationTypeSelect->getValue() != STATION_TRIGGER_TYPE_CHECKPOINT);
+  if(stationTypeSelect->getValue() == STATION_TRIGGER_TYPE_CHECKPOINT || stationTypeSelect->getValue() == STATION_TRIGGER_TYPE_FINISH) {
+    distFromStartInput->setHidden(false);
+  } else {
+    distFromStartInput->setHidden(true);
+  }
 }
 
 void wifiEnabledChanged() {
@@ -402,6 +410,10 @@ void wifiEnabledChanged() {
   wifiSSIDText->setHidden(!wifiEnabledCB->isChecked());
   wifiPasswdText->setHidden(!wifiEnabledCB->isChecked());
   wifiIPText->setHidden(!wifiEnabledCB->isChecked());
+}
+
+void deleteAllSessionsPressed() {
+  spiffsLogic.deleteAllSessions();
 }
 
 void beginLCDDisplay() {
@@ -437,9 +449,9 @@ void beginLCDDisplay() {
   trainingsModeSelect->addOption("Target time", "Target");
   stationTypeSelect = new Select("Location", stationTypeChanged);
   stationTypeSelect->addOption("Start + finish", "S+F"); // STATION_TRIGGER_TYPE_START_FINISH 0
-  stationTypeSelect->addOption("Only start", "start"); // STATION_TRIGGER_TYPE_START 1
-  stationTypeSelect->addOption("checkpoint", "checkpoint"); // STATION_TRIGGER_TYPE_CHECKPOINT 2
-  stationTypeSelect->addOption("Only finish", "finish"); // STATION_TRIGGER_TYPE_FINISH 3
+  stationTypeSelect->addOption("Only start", "Start"); // STATION_TRIGGER_TYPE_START 1
+  stationTypeSelect->addOption("checkpoint", "Checkpoint"); // STATION_TRIGGER_TYPE_CHECKPOINT 2
+  stationTypeSelect->addOption("Only finish", "Finish"); // STATION_TRIGGER_TYPE_FINISH 3
   stationTypeChanged();
   laserValue = new NumberField("Analog laser", "", 1, 0, UINT16_MAX, 0);
   isDisplaySelect = new Select("Station type", isDisplayChanged);
@@ -468,6 +480,7 @@ void beginLCDDisplay() {
   targetMetersPerLapInput = new NumberField("Meters/Lap", "m", 1, 10, 10000000, 0, 0);
   resetTarget();
 
+  Button* deleteAllSessionsBtn = new Button("Delete all sessions", deleteAllSessionsPressed);
   Button* startGunBtn = new Button("Start!", startGunBtnPressed);
   
   wifiEnabledCB = new CheckBox("WiFi Activated", false, false, wifiEnabledChanged);
@@ -488,7 +501,7 @@ void beginLCDDisplay() {
   debugSubMenu->setHidden(true);
 
   setupMenu->addItem(new TextItem("Setup"));
-  setupMenu->addItem(trainingsModeSelect);
+  // setupMenu->addItem(trainingsModeSelect); // future version
   setupMenu->addItem(targetTimeSubMenu);
 
     targetTimeMenu->addItem(new TextItem("Target time"));
@@ -532,6 +545,7 @@ void beginLCDDisplay() {
     systemSettingsMenu->addItem(isMasterCB);
     systemSettingsMenu->addItem(debugSubMenu);
     systemSettingsMenu->addItem(isDisplaySelect);
+    systemSettingsMenu->addItem(deleteAllSessionsBtn);
 
       debugMenu->addItem(new TextItem("Info for nerds"));
       debugMenu->addItem(displayCurrentText);
@@ -548,6 +562,7 @@ void beginLCDDisplay() {
   setupMenu->addItem(new SubMenu("Info", infoMenu));
 
     infoMenu->addItem(new TextItem("Roller timing", true));
+    infoMenu->addItem(new TextItem("Version", true));
     infoMenu->addItem(new TextItem(VERSION, true));
     infoMenu->addItem(new TextItem("www.roller-results.com", true));
 

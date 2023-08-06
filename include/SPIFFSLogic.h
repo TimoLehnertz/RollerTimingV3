@@ -27,8 +27,6 @@ struct Trigger {
 
 #define MAX_TRIGGERS_PER_SESSION
 
-const char* sessionsPath = "/sessions";
-
 /**
  * Treat every trigger as new lap
  */
@@ -53,20 +51,20 @@ struct TrainingsMeta {
   String fileName;
 };
 
-struct TrainingsSession : protected DoubleLinkedList<Trigger> {
+struct TrainingsSession : public DoubleLinkedList<Trigger> {
 public:
   TrainingsSession(): DoubleLinkedList() {
-    this->path = String() ;
     this->laps = 0;
-    this->filenName = String();
+    this->fileName = String();
+    this->filePath = String();
     this->write = false;
     this->isLoaded = false;
   }
 
   TrainingsSession(String fileName, bool write) : DoubleLinkedList() {
-    this->path = String(sessionsPath) + "/" + getFileName();
     this->laps = 0;
-    this->filenName = fileName;
+    this->fileName = fileName;
+    this->filePath = String("/") + fileName;
     this->write = write;
     this->isLoaded = write;
   }
@@ -74,19 +72,20 @@ public:
   bool loadFromStorage() {
     if(isLoaded) return true;
     clear();
-    if(!SPIFFS.exists(path)) return false;
-    File file = SPIFFS.open(path, FILE_READ, false);
+    File file = SPIFFS.open(filePath, FILE_READ, false);
+    if(!file) return false;
     while(file.available() >= sizeof(Trigger)) {
       Trigger trigger;
       file.readBytes((char*) &trigger, sizeof(Trigger));
       pushBack(trigger);
     }
+    file.close();
     return true;
   }
 
   void addTrigger(Trigger trigger) {
     if(!write) return;
-    File file = SPIFFS.open(path, FILE_APPEND, true);
+    File file = SPIFFS.open(filePath, FILE_APPEND, true);
     size_t written = file.write((uint8_t*) &trigger, sizeof(Trigger));
     file.close();
     if(written != sizeof(Trigger)) {
@@ -100,7 +99,7 @@ public:
   }
 
   size_t getFileSize() {
-    File file = SPIFFS.open(path);
+    File file = SPIFFS.open(filePath);
     if(!file) return 0;
     return file.size();
   }
@@ -134,16 +133,12 @@ public:
     return getLast().timeMs - get(getSize() - 2).timeMs;
   }
 
-  String getFilePath() {
-    return path;
-  }
-
   String getFileName() {
-    return filenName;
+    return fileName;
   }
 private:
-  String path;
-  String filenName;
+  String fileName;
+  String filePath;
   size_t laps;
   bool write;
   bool isLoaded;
@@ -154,31 +149,34 @@ public:
   SPIFFSLogic() {
     this->running = false;
     this->activeTraining = TrainingsSession();
+    this->activeTrainingsIndex = 0;
     this->trainingsMetas = DoubleLinkedList<TrainingsMeta>();
   }
 
   bool begin() {
-    if (!SPIFFS.begin(true) && !SPIFFS.begin(true) && !SPIFFS.begin(true)) { // try 3 times in case formating helps
+    if (!SPIFFS.begin(true)) {
       Serial.println("SPIFFS Mount Failed");
       return false;
     }
-    if(!SPIFFS.exists(sessionsPath)) {
-      if(SPIFFS.mkdir(sessionsPath)) {
-        Serial.printf("Created directory %s\n", sessionsPath);
-      }
-    }
+    // SPIFFS.format();
+    // File testFile = SPIFFS.open("/test", FILE_APPEND, true);
+    // testFile.println("Moin");
+    // testFile.close();
 
+    Serial.println("SPIFFS files:");
     File root = SPIFFS.open("/");
     listFiles(root);
     root.close();
 
     Serial.printf("SPIFFS space: %ikb/%ikb (used: %i%%)\n", SPIFFS.usedBytes() / 1000, SPIFFS.totalBytes() / 1000, int(round(float(SPIFFS.usedBytes()) / float(SPIFFS.totalBytes() + 1) * 100.0)));
-    
-    
-    File sessionsDir = SPIFFS.open(sessionsPath);
-    while(File sessionFile = sessionsDir.openNextFile()) {
+
+    root = SPIFFS.open("/");
+    while(File sessionFile = root.openNextFile()) {
       if(sessionFile.size() < sizeof(Trigger)) {
         continue; // skip broken file
+      }
+      if(!String(sessionFile.name()).endsWith(".rt")) {
+        continue;
       }
       TrainingsMeta trainingsMeta = TrainingsMeta();
       trainingsMeta.fileName = String(sessionFile.name());
@@ -186,14 +184,25 @@ public:
       trainingsMetas.pushBack(trainingsMeta);
       sessionFile.close();
     }
-    sessionsDir.close();
+    root.close();
     Serial.printf("Found %i session files\n", trainingsMetas.getSize());
+    startNewSession();
     running = true;
     return true;
   }
 
+  size_t getBytesTotal() {
+    return SPIFFS.totalBytes();
+  }
+
+  size_t getBytesUsed() {
+    return SPIFFS.usedBytes();
+  }
+
   void addTrigger(const Trigger& trigger) {
+    if(!running) return;
     activeTraining.addTrigger(trigger);
+    trainingsMetas.get(activeTrainingsIndex).fileSize = activeTraining.getFileSize();
   }
 
   bool startNewSession() {
@@ -202,7 +211,19 @@ public:
       trainingsMetas.pushBack(TrainingsMeta{ activeTraining.getFileSize(), activeTraining.getFileName() });
     }
     activeTraining = TrainingsSession(getFileNameForNewTraining(), true);
+    activeTrainingsIndex = trainingsMetas.pushBack(TrainingsMeta{ activeTraining.getFileSize(), activeTraining.getFileName() });
     return true;
+  }
+
+  bool hasTraining(String fileName) {
+    TrainingsSession session = TrainingsSession(fileName, false);
+    return session.loadFromStorage();
+  }
+
+  TrainingsSession getTraining(String fileName) {
+    TrainingsSession session = TrainingsSession(fileName, false);
+    session.loadFromStorage();
+    return session;
   }
 
   const DoubleLinkedList<TrainingsMeta>& getTrainingsMetas() {
@@ -213,27 +234,50 @@ public:
     return activeTraining;
   }
 
+  void deleteAllSessions() {
+    File root = SPIFFS.open("/");
+    while(File sessionFile = root.openNextFile()) {
+      if(!String(sessionFile.name()).endsWith(".rt")) {
+        continue;
+      }
+      bool succsess = SPIFFS.remove(String(sessionFile.path()) + "/" + String(sessionFile.name()));
+      Serial.printf("Deleting %s/%s succsess: %i\n", sessionFile.path(), String(sessionFile.name()), succsess);
+    }
+    trainingsMetas.clear();
+    Serial.println("Deleted all sessions. Updated file system:");
+    root.close();
+    root = SPIFFS.open("/");
+    listFiles(root);
+    root.close();
+  }
+
 private:
   bool running;
   DoubleLinkedList<TrainingsMeta> trainingsMetas;
   TrainingsSession activeTraining;
+  size_t activeTrainingsIndex;
 
   void listFiles(File& dir, uint8_t intends = 0) {
-    if(!dir.isDirectory()) { // file
-      for (size_t i = 0; i < intends; i++) {
-        Serial.print("  ");
-      }
-      Serial.printf("%s (%ibytes)\n", dir.name(), dir.size());
-    } else {
+    if(dir.isDirectory()) {
       while(File f = dir.openNextFile()) {
-        listFiles(f, intends + 1);
+        if(f.isDirectory()) {
+          Serial.printf("%s/\n", f.name());
+          listFiles(f, intends + 1);
+        } else {
+          if(f.size() > 1024) {
+            Serial.printf("%s (%ikb)\n", f.name(), round(f.size() / 1024));
+          } else {
+            Serial.printf("%s (%ibytes)\n", f.name(), f.size());
+          }
+        }
         f.close();
       }
+    } else {
+      Serial.printf("%s is no directory to print\n", dir.name());
     }
   }
 
   String getFileNameForNewTraining() {
-    File sessionsDir = SPIFFS.open(String(sessionsPath));
     int maxId = 0;
     for (TrainingsMeta &trainingsMeta : trainingsMetas) {
       maxId = max(maxId, trainingsMeta.fileName.toInt());

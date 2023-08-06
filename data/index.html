@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Roller timing</title>
     <style>
-        p {
-            margin: 0;
+        * {
+            font-family: "Arial", sans-serif;
+            color: #333;
         }
+
         body {
             margin: 0;
-            padding: 0;
-            font-family: "Arial", sans-serif;
+            padding: 1rem;
             background: linear-gradient(to bottom right, #4287f5, #b243f5);
             display: flex;
             justify-content: center;
@@ -19,31 +20,37 @@
             padding-top: 5rem;
             min-height: calc(100vh - 5rem);
         }
+
         .container {
             display: flex;
             justify-content: center;
             align-items: start;
             background-color: white;
+            width: 40rem;
             border-radius: 20px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
             padding: 30px;
         }
+
         .content {
             text-align: center;
         }
+
         h1 {
             font-size: 32px;
             margin-bottom: 20px;
-            color: #333;
         }
+
         p {
             font-size: 16px;
             color: #555;
+            margin: 0;
         }
+
         .download-btn {
             border: none;
             display: inline-block;
-            padding: 12px 24px;
+            padding: 10px 10px;
             background-color: #4287f5;
             color: white;
             font-size: 15px;
@@ -55,6 +62,10 @@
             background-color: #325792;
         }
 
+        .download-btn:disabled {
+            background-color: #93979e;
+        }
+
         .flex {
             display: flex;
             flex-direction: row;
@@ -63,9 +74,105 @@
             gap: 1rem;
         }
 
+        .error {
+            color: rgb(206, 99, 99);
+            /* padding-bottom: 0.5rem; */
+            /* border-bottom: 1px solid rgb(206, 99, 99); */
+        }
+
+        .saved-session {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .lap, .split-lap {
+            align-items: center;
+            display: flex;
+            gap: 1rem;
+            padding: 0.3rem;
+        }
+
+        .split-lap {
+            padding-left: 1.5rem;
+            border-left: 1px solid #444;
+        }
+
+        .lap:not(:first-of-type) {
+            border-top: 1px solid #444;
+        }
+
+        .split-lap:not(:first-of-type) {
+
+        }
+
+        .lap-index, .split-lap-index {
+            color: #284746;
+            font-style: italic;
+            width: 2em;
+            font-size: 1.1rem;
+        }
+
+        .lap-time {
+            color: #0b2229;
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+
+        .split-lap-time {
+            color: #0b2229;
+            font-size: 1.1rem;
+        }
+
+        .split-lap-distance {
+            width: 3em;
+        }
+
+        #saved {
+            display: flex;
+            flex-direction: column;
+            /* gap: 0.5rem; */
+        }
+
+        #saved div {
+            padding: 0.25rem 0;
+        }
+
+        #saved div:not(:first-of-type) {
+            border-top: 1px solid #444;
+        }
+
+        #free-space {
+            text-align: center;
+            color: gray;
+            padding-top: 1rem;
+        }
+
+        .toggle-btn {
+            border: none;
+            display: inline-block;
+            padding: 12px 12px;
+            background-color: white;
+            color: #4287f5;
+            font-size: 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .toggle-btn.active {
+            background-color: #4287f5;
+            color: white;
+        }
+
         @media (max-width: 768px) {
-            .flex {
+            body {
+                padding-top: 1rem;
+                min-height: calc(100vh - 2rem);
+            }
+            .flex:not(.row) {
                 flex-direction: column;
+                gap: 0.5rem;
             }
         }
     </style>
@@ -73,46 +180,603 @@
 <body>
     <div class="container">
         <div class="content">
+            <div class="error" id="error-message">
+
+            </div>
             <h1>Roller timing</h1>
             <hr>
             <br>
-            <p>Download your trainingssessions in excel format</p>
-            <br>
             <div class="flex">
-                <p>Your last session: <span class="lastSessionSize">5</span> Laps saved</p>
-                <a class="download-btn" href="/download.txt">Download</a>
+                <div class="flex row">
+                    <button class="toggle-btn active" id="viewerBtn" onclick="toggle('viewer')">Viewer</button>
+                    <button class="toggle-btn" id="downloadBtn" onclick="toggle('download')">Download</button>
+                </div><div class="flex row">
+                    <button class="toggle-btn" id="startGunBtn" onclick="toggle('startGun')">Start gun</button>
+                    <button class="toggle-btn" id="getStartedBtn" onclick="toggle('getStarted')">Get started</button>
+                </div>
+            </div>
+            <div class="page" id="getStartedPage">
+                <h3>Get started guide</h3>
+                <p style="text-align: left">Lorem ipsum dolor sit amet consectetur adipisicing elit. Consequuntur, totam eos. Laboriosam eius, dolorem deleniti molestiae sed omnis asperiores iure nulla commodi neque eaque cumque repellendus molestias quidem quos! Mollitia.</p>
+            </div>
+            <div class="page" id="startGunPage">
+                <br>
+                <p>This start gun is syncronized with your roller timing devices</p>
+                <br>
+                <div class="flex row">
+                    <button class="download-btn startGunBtn" onclick="startNow()">Start now</button>
+                    <button class="download-btn startGunBtn" onclick="start15Sec()">Start in 15 seconds</button>
+                </div>
+                <br>
+                <br>
+                <div class="flex">
+                    <p>Start signal timing:</p>
+                    <div>
+                        <input type="radio" id="fast" name="startGunSpeed" value="fast">
+                        <label for="fast">Fast</label>
+                        <input type="radio" id="medium" name="startGunSpeed" value="medium" checked>
+                        <label for="medium">Medium</label>
+                        <input type="radio" id="slow" name="startGunSpeed" value="slow">
+                        <label for="slow">Slow</label>
+                    </div>
+                </div>
+            </div>
+            <div class="page" id="viewerPage">
+                <div id="viewer">
+                    <br>
+                    <p>Loading viewer...</p>
+                </div>
+            </div>
+            <div class="page" id="downloadPage">
+                <br>
+                <p>Download your trainings sessions in .csv format</p>
+                <div id="saved"></div>
+                <div id="free-space"></div>
             </div>
             <br>
             <br>
-            <div>
-                <button onclick="loadMore()" class="download-btn">See <span class="othersSize">10</span> others sessions</button>
-            </div>
-            <br>
-            <div class="others">
-                
-            </div>
+            <p>
+                Roller timing by Timo Lehnertz
+            </p>
         </div>
     </div>
 </body>
 <script>
-function loadMore() {
+"use strict";
+
+let debug = false;
+
+let viewerFileName = null; // undefined = live viewer, else static viewer
+let runningSessionName = null; // not known yet
+let viewerActive = false;
+
+function toggle(viewer) {
+    for (const element of document.getElementsByClassName('page')) {
+        element.style.display = 'none';
+    }
+    document.getElementById(`${viewer}Page`).style.display = 'block';
+    for (const element of document.getElementsByClassName('toggle-btn')) {
+        element.classList.remove('active');
+    }
+    document.getElementById(`${viewer}Btn`).classList.add('active');
+    if(viewer === 'viewer') {
+        startViewer();
+    } else {
+        endViewer();
+    }
+    localStorage.setItem("page", viewer);
+}
+
+const savedPage = localStorage.getItem("page");
+if(savedPage) {
+    toggle(savedPage);
+} else {
+    toggle('getStarted');
+}
+
+const startGunSpeed = localStorage.getItem("startGunSpeed");
+if(startGunSpeed) {
+    document.getElementById(startGunSpeed).checked = true;
+}
+
+
+const session = [
+    {
+        "triggerType": 0,
+        "timeMs": 29537,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 37964,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 40020,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 91049,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 94330,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 100117,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 109470,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 113778,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 148304,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 159314,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 160497,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 161278,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 235602,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 236715,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 249528,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 0,
+        "timeMs": 259361,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 1,
+        "timeMs": 302347,
+        "millimeters": 0
+    },
+    {
+        "triggerType": 2,
+        "timeMs": 310333,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 3,
+        "timeMs": 314337,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 3,
+        "timeMs": 345905,
+        "millimeters": 10000
+    },
+    {
+        "triggerType": 1,
+        "timeMs": 536984,
+        "millimeters": 0
+    },
+    {
+        "triggerType": 2,
+        "timeMs": 543023,
+        "millimeters": 10000
+    },
+    // {
+    //     "triggerType": 3,
+    //     "timeMs": 544395,
+    //     "millimeters": 10000
+    // }
+];
+
+function isJsonString(str) {
+    try {
+        JSON.parse(str);
+    } catch (e) {
+        return false;
+    }
+    return true;
+}
+
+function logError(error) {
+    document.getElementById("error-message").innerText = error;
+    console.log(error);
+}
+
+function updateSaved(sessions) {
+    if(sessions.length > 0) {
+        runningSessionName = sessions[sessions.length - 1].fileName;
+    }
+    const savedDOM = document.getElementById("saved");
+    savedDOM.innerHTML = "";
+    if(sessions.length === 0) {
+        return;
+    }
+    const h3 = document.createElement("h3");
+    h3.innerText = `Saved sessions (${sessions.length})`;
+    savedDOM.append(h3);
+    for (const session of sessions) {
+        const sessionElement = document.createElement("div");
+        sessionElement.classList.add("saved-session");
+        let viewText = "View"; {
+            if(session.fileName === runningSessionName) {
+                viewText = "View live";
+            }
+        }
+        sessionElement.innerHTML = `#${parseInt(session.fileName)} (${session.triggerCount} laps)<button class="download-btn" onclick="download('${session.fileName}', true)">Download</button><button class="download-btn" onclick="viewSession('${session.fileName}', true)">${viewText}</button>`;
+        savedDOM.append(sessionElement);
+    }
+}
+
+function updateFreeSpace(bytesUsed, bytesTotal) {
+    const freeSpaceDom = document.getElementById("free-space");
+    freeSpaceDom.innerHTML = `<hr>${Math.round(bytesUsed / 1000)}kb (${Math.round(bytesUsed / bytesTotal * 100)} %) of ${Math.round(bytesTotal / 1000 / 1000 * 10) / 10}mb occupied`;
+}
+
+function loadSessions() {
     let xhr = new XMLHttpRequest();
-    xhr.open('GET', '/loadmore.json', true);
+    xhr.open('GET', '/sessions.json', true);
 
     // Set up a callback function to handle the response
     xhr.onreadystatechange = function () {
         if (xhr.readyState === XMLHttpRequest.DONE) {
             if (xhr.status === 200) {
-                let response = JSON.parse(xhr.responseText);
-                console.log(response);
+                if(isJsonString(xhr.responseText)) {
+                    const json = JSON.parse(xhr.responseText);
+                    console.log(json);
+                    if(json.sessions !== undefined) {
+                        updateSaved(json.sessions);
+                        updateFreeSpace(json.bytesUsed, json.bytesTotal);
+                    }
+                } else {
+                    logError("Error:" + xhr.responseText);
+                }
             } else {
-                alert("Error: " + xhr.status);
+                logError("Could not load sessions. Error: " + xhr.status);
+                if(debug) {
+                    updateFreeSpace(100000, 600000);
+                    updateSaved([
+                        {
+                            fileName: "1.rt",
+                            fileSize: 60,
+                            triggerCount: 1
+                        }, {
+                            fileName: "2.rt",
+                            fileSize: 60,
+                            triggerCount: 3
+                        },
+                    ]);
+                }
             }
         }
     };
-
     // Send the request
     xhr.send();
 }
+
+function fetchSession(fileName, callback) {
+    let xhr = new XMLHttpRequest();
+    xhr.open('GET', `/session?name=${fileName}`, true);
+
+    // Set up a callback function to handle the response
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            if (xhr.status === 200) {
+                if(isJsonString(xhr.responseText)) {
+                    const session = JSON.parse(xhr.responseText);
+                    callback(true, session)
+                } else {
+                    callback(false);
+                    logError("Error:" + xhr.responseText);
+                }
+            } else {
+                callback(false);
+                if(debug) {
+                    callback(true, session);
+                }
+                logError("Could not load sessions. Error: " + xhr.status);
+            }
+        }
+    };
+    // Send the request
+    xhr.send();
+}
+
+function download(file) {
+    fetchSession(file, (succsess, session) => {
+        if(succsess) {
+            downloadCSV(session, file);
+        }
+    });
+}
+
+const STATION_TRIGGER_TYPE_START_FINISH = 0;
+const STATION_TRIGGER_TYPE_START = 1;
+const STATION_TRIGGER_TYPE_CHECKPOINT = 2;
+const STATION_TRIGGER_TYPE_FINISH = 3;
+const STATION_TRIGGER_TYPE_NONE = 4;
+
+class SplitLap {
+    constructor(distance, splitTimeMs, splitIndex) {
+        this.distance = distance;
+        this.splitTimeMs = splitTimeMs;
+        this.splitIndex = splitIndex;
+    }
+}
+
+class Lap {
+    constructor(index, timeMs, splitLaps) {
+        this.index = index;
+        this.timeMs = timeMs;
+        this.splitLaps = splitLaps;
+        this.done = true;
+    }
+}
+
+function sessionToLaps(session) {
+    const laps = [];
+    let splitLaps = [];
+    let lapStarted = false;
+    let lapCount = 0;
+    let lapStart = 0;
+    let lastTrigger = 0;
+    let lastMillimeters = 0;
+    let currentCheckpoint = 0;
+    for (const trigger of session) {
+        if(lapStarted && (trigger.triggerType === STATION_TRIGGER_TYPE_FINISH || trigger.triggerType === STATION_TRIGGER_TYPE_START_FINISH)) {
+            if(splitLaps.length > 0) {
+                splitLaps.push(new SplitLap(trigger.millimeters, trigger.timeMs - lastTrigger, currentCheckpoint++));
+            }
+            laps.push(new Lap(lapCount++, trigger.timeMs - lapStart, splitLaps));
+            splitLaps = [];
+            lapStarted = false;
+        }
+        if(trigger.triggerType == STATION_TRIGGER_TYPE_START || trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
+            lapStart = trigger.timeMs;
+            lastMillimeters = 0;
+            lapStarted = true;
+            currentCheckpoint = 0;
+        }
+        if(lapStarted && trigger.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
+            if(trigger.millimeters <= lastMillimeters) continue;
+            splitLaps.push(new SplitLap(trigger.millimeters, trigger.timeMs - lastTrigger, currentCheckpoint++));
+            lastMillimeters = trigger.millimeters;
+        }
+        lastTrigger = trigger.timeMs;
+    }
+    if(splitLaps.length > 0) {
+        const lap = new Lap(lapCount++, 0, splitLaps);
+        lap.done= false;
+        laps.push(lap);
+    }
+    return laps;
+}
+
+// downloadCSV(session, "1.rt");
+
+/**
+ * [{millimeters:123,timeMs:-123,triggerType:2}]
+ */
+function downloadCSV(session, sessionName) {
+    let csv = "Lap,Lap time(s),Split,Split distance(m),Split time(s)\n";
+    const laps = sessionToLaps(session);
+    console.log(laps);
+    for (const lap of laps.toReversed()) {
+        if(lap.done) {
+            csv += `${lap.index + 1},${lap.timeMs / 1000},,,\n`;
+        } else {
+            csv += `${lap.index + 1},,,,,Not finished\n`;
+        }
+        for (const splitLap of lap.splitLaps.toReversed()) {
+            csv += `${lap.index + 1},,${splitLap.splitIndex + 1},${splitLap.distance / 1000},${splitLap.splitTimeMs / 1000}\n`;
+        }
+    }
+    console.log(csv);
+    // Creating a Blob for having a csv file format 
+    // and passing the data with type
+    const blob = new Blob([csv], { type: 'text/csv' });
+    // Creating an object for downloading url
+    const url = window.URL.createObjectURL(blob);
+    // Creating an anchor(a) tag of HTML
+    const a = document.createElement('a');
+    // Passing the blob downloading url
+    a.setAttribute('href', url);
+    // Setting the anchor tag attribute for downloading
+    // and passing the download file name
+    a.setAttribute('download', `${parseInt(sessionName)}.csv`);
+    // Performing a download with click
+    a.click();
+}
+
+function startViewer() {
+    if(viewerFileName === null) { // live
+        viewerActive = true;
+    } else {
+        viewerActive = false;
+    }
+    fetchViewer();
+}
+
+function fetchViewer() {
+    let fetchFile = null;
+    if(viewerFileName !== null) { // static fiewer file
+        fetchFile = viewerFileName;
+    } else { // live viewer file
+        fetchFile = runningSessionName;
+    }
+    if(fetchFile !== null) { // file found
+        fetchSession(fetchFile, (succsess, session) => {
+            if(succsess) {
+                displayLaps(sessionToLaps(session), fetchFile);
+            }
+        });
+    }
+    if(viewerActive && viewerFileName === null) {
+        window.setTimeout(() => {
+            fetchViewer();
+        }, 2000);
+    }
+}
+
+function endViewer() {
+    viewerActive = false;
+}
+
+function viewSession(fileName) {
+    if(fileName === runningSessionName) {
+        viewerFileName = null;
+    } else {
+        viewerFileName = fileName;
+    }
+    toggle('viewer');
+}
+
+loadSessions();
+
+function displayLaps(laps, fileName) {
+    console.log("fileName:", fileName);
+    console.log("laps:", laps);
+    const viewer = document.getElementById("viewer");
+    viewer.innerHTML = `<br><p>Session #${parseInt(fileName)}</p><br>`;
+    if(fileName === runningSessionName) {
+        viewer.innerHTML += "<p>Live view</p>"
+    } else {
+        viewer.innerHTML += `<button class="download-btn" onclick="viewSession('${runningSessionName}')">View live</button>`;
+    }
+    viewer.innerHTML += "<br>";
+    viewer.innerHTML += "<br>";
+    for (const lap of laps.toReversed()) {
+        viewer.innerHTML += `<div class="lap">
+            <span class="lap-index">#${lap.index + 1}</span>
+            <span class="lap-time">${lap.done ? (lap.timeMs / 1000) + "s" : 'running...'}</span>`;
+        for (const splitLap of lap.splitLaps.toReversed()) {
+            viewer.innerHTML += `
+            <div class="split-lap">
+                <span class="split-lap-index">#${splitLap.splitIndex + 1}</span>
+                <span class="split-lap-distance">${splitLap.distance / 1000}m</span>
+                <span class="split-lap-time">${splitLap.splitTimeMs / 1000}s</span>
+            </div>`;
+        }
+        viewer.innerHTML += "</div>";
+    }
+}
+
+function getRandomArbitrary(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
+function toggleStartGunBtns(enabled) {
+    document.querySelectorAll('.startGunBtn').forEach(elem => {
+        elem.disabled = !enabled;
+    });
+}
+
+const startGunTimimngs = {
+    slow: {
+        setMin: 3000,
+        setMax: 5000,
+        goMin: 3000,
+        goMax: 5000,
+    },
+    medium: {
+        setMin: 2000,
+        setMax: 4000,
+        goMin: 2000,
+        goMax: 4000,
+    },
+    fast: {
+        setMin: 1000,
+        setMax: 3000,
+        goMin: 1000,
+        goMax: 3000,
+    }
+};
+
+let letBeepAudio = null;
+
+function sendStart() {
+    if(debug) {
+        var audio = new Audio('beep.mp3');
+        audio.play();
+        return;
+    }
+    const sendTime = Date.now();
+    let xhr = new XMLHttpRequest();
+    xhr.open('GET', '/startNow', true);
+    // Set up a callback function to handle the response
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            if (xhr.status === 200) {
+                console.log("start signal receive time(ms):", Date.now() - sendTime);
+                letBeepAudio.play();
+            } else {
+                logError("Could not start. Error: " + xhr.status);
+            }
+        }
+    };
+    // Send the request
+    xhr.send();
+}
+
+function startNow(switchPage = true) {
+    if(switchPage) {
+        toggle('viewer');
+    }
+    letBeepAudio = new Audio('beep.mp3');
+    toggleStartGunBtns(false);
+    const speed = document.querySelector('input[name="startGunSpeed"]:checked').value;
+    localStorage.setItem("startGunSpeed", speed);
+    console.log(speed);
+    const setTimeMs = getRandomArbitrary(startGunTimimngs[speed].setMin, startGunTimimngs[speed].setMax);
+    const goTimMs = getRandomArbitrary(startGunTimimngs[speed].goMin, startGunTimimngs[speed].goMax);
+    var audio = new Audio('inPosition.mp3');
+    audio.play();
+    window.setTimeout(() => {
+        var audio = new Audio('set.mp3');
+        audio.play();
+        window.setTimeout(() => {
+            sendStart();
+            toggleStartGunBtns(true);
+        }, goTimMs);
+    }, setTimeMs);
+}
+
+function start15Sec() {
+    toggle('viewer');
+    toggleStartGunBtns(false);
+    window.setTimeout(() => {
+        startNow(false);
+    }, 15000);
+}
+
 </script>
 </html>

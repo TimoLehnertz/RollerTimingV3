@@ -564,6 +564,11 @@ public:
         menu->addItem(checkbox);
     }
 
+    const char* getSelectedShort() {
+        if(checkboxesSize == 0) return nullptr;
+        return values[value];
+    }
+
     void setValue(uint8_t value) {
         if(value >= checkboxesSize) return;
         for (size_t i = 0; i < checkboxesSize; i++) {
