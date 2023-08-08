@@ -73,7 +73,6 @@ void setup() {
   beginPreferences(); // depends on beginLCDDisplay
   beginMasterSlaveLogic(); // depends on beginLCDDisplay
   // trigge changes
-  isMasterChanged();
   isDisplayChanged();
   Serial.println("Setup complete");
 }
@@ -90,8 +89,8 @@ void handleTriggers() {
     }
     lastTimeTriggeredMs = millis();
     EasyBuzzer.beep(3800, 20, 100, 1,  100, 1);
-    if(!isMasterCB->isChecked()) {
-      slaveTrigger(lastTriggerMs, stationTypeSelect->getValue());
+    if(!isDisplaySelect->getValue()) {
+      slaveTrigger(lastTriggerMs, stationTypeSelect->getValue(), uint16_t(distFromStartInput->getValue() * 1000.0));
     }
   }
 }
@@ -99,7 +98,7 @@ void handleTriggers() {
 void loop() {
   handleTriggers();
   handleRadioReceive();
-  handleradioSend();
+  handleRadioSend();
   handleMasterSlaveLogic();
   uiManager.handle();
   handleLEDS();

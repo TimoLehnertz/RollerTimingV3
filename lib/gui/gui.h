@@ -381,6 +381,8 @@ public:
     }
 
     void setValue(double value) {
+        if(value < this->min) value = this->min;
+        if(value > this->max) value = this->max;
         this->number = value;
     }
 
@@ -720,7 +722,7 @@ public:
 
     void begin(OverlayCallback* overlays = nullptr, size_t overlayCount = 0, FrameSection* frameSections1 = nullptr, size_t frameSectionsCount1 = 0);
 
-    void handle();
+    void handle(bool forceUpdate = false);
 
     void triggerInputEvent(GUIInputEvent event);
 

@@ -17,6 +17,10 @@
         "new": "cpp",
         "algorithm": "cpp",
         "random": "cpp",
-        "system_error": "cpp"
+        "system_error": "cpp",
+        "bitset": "cpp",
+        "regex": "cpp",
+        "utility": "cpp",
+        "ctime": "cpp"
     }
 }

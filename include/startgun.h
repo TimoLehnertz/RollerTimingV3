@@ -14,6 +14,7 @@
 #include <Sound.h>
 #include <MasterSlaveLogic.h>
 #include <SPIFFSLogic.h>
+#include <GuiLogic.h>
 
 bool startgunStarted = false;
 
@@ -37,7 +38,7 @@ void triggerStartGun() {
     }
     if(startgunStarted) return;
     startgunPhase = 1;
-    startgunInPositionMs = millis() + inPositionMinDelay->getValue() * 1000 + (inPositionMaxDelay->getValue() - inPositionMinDelay->getValue()) * 1000.0 * randomDouble(0, 1);
+    startgunInPositionMs = millis() + inPositionDelay->getValue() * 1000;
     startgunSetMs = startgunInPositionMs + setMinDelay->getValue() * 1000 + (setMaxDelay->getValue() - setMinDelay->getValue()) * 1000.0 * randomDouble(0, 1);
     startgunGoMs = startgunSetMs + goMinDelay->getValue() * 1000 + (goMaxDelay->getValue() - goMinDelay->getValue()) * 1000.0 * randomDouble(0, 1);
     // startgunStarted = true;
@@ -78,10 +79,10 @@ void handleStartgun() {
                 playSoundStartgunGo();
                 startgunPhase = 0;
                 startgunStarted = false;
-                if(masterSlave.isMaster()) {
+                if(isDisplaySelect->getValue()) {
                     masterTrigger(Trigger{ timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_START }); // 0 millimeters
                 } else {
-                    slaveTrigger(millis(), STATION_TRIGGER_TYPE_START);
+                    slaveTrigger(millis(), STATION_TRIGGER_TYPE_START, 0);
                 }
             }
             break;

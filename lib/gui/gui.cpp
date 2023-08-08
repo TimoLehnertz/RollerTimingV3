@@ -276,7 +276,7 @@ void UIManager::begin(OverlayCallback* userOverlays, size_t overlayCount, FrameS
     displayUI->disableAutoTransition();
 }
 
-void UIManager::handle() {
+void UIManager::handle(bool forceUpdate) {
     // events
     if(mouseDown && millis() > backBtnAction) {
         handleProcessedEvent(PROCESSED_EVENT_CANCEL);
@@ -284,7 +284,7 @@ void UIManager::handle() {
         mouseDownMs = INT64_MAX;
         // mouseDown = false;
     }
-    if(millis() > nextUIUpdate) {
+    if(millis() > nextUIUpdate || forceUpdate) {
         nextUIUpdate = millis() + displayUI->update();
     }
 }

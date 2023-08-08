@@ -16,7 +16,6 @@
 #include "HT_SSD1306Wire.h" // legacy include: `#include "SSD1306.h"`
 #include "HT_DisplayUi.h"
 #include <RotaryEncoder.h>
-#include <MasterSlave.h>
 #include <gui.h>
 #include <FastLED.h>
 #include <LedMatrix.h>
@@ -35,7 +34,6 @@ typedef int64_t timeUs_t;
 SPIFFSLogic spiffsLogic = SPIFFSLogic();
 
 int64_t timeForSize(uint8_t size);
-MasterSlave masterSlave(false, timeForSize);
 SSD1306Wire  display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED); // addr , freq , i2c group , resolution , rst
 SX1262 radio = new Module(LoRa_nss, LoRa_dio1, LoRa_nrst, LoRa_busy);
 
@@ -73,6 +71,13 @@ float vBatPercentLPF = 0.1;
 float vBat = 3.8;
 
 /**
+ * Cloud upload variables
+ */
+String wifiSSID = "";
+String wifiPassword = "";
+String username = "";
+
+/**
  * Gui variables
  */
 MenuItem* menuSetupItems[4];
@@ -80,14 +85,11 @@ NumberField* distFromStartInput;
 NumberField* minDelayInput;
 NumberField* displayTimeInput;
 NumberField* displayBrightnessInput;
-CheckBox* isMasterCB;
-Select* powerSavingSelect;
 Select* trainingsModeSelect;
 CheckBox* showAdvancedCB;
 SubMenu* debugSubMenu;
 TextItem* advancedText;
-NumberField* inPositionMinDelay;
-NumberField* inPositionMaxDelay;
+NumberField* inPositionDelay;
 NumberField* setMinDelay;
 NumberField* setMaxDelay;
 NumberField* goMinDelay;
@@ -97,7 +99,13 @@ NumberField* targetMetersInput;
 NumberField* targetMetersPerLapInput;
 Select* stationTypeSelect;
 CheckBox* wifiEnabledCB;
+CheckBox* cloudUploadEnabled;
 Select* isDisplaySelect;
+Select* fontSizeSelect;
+
+Button* startBtn;
+Button* lapBtn;
+Button* stopBtn;
 
 TextItem* wifiSSIDText;
 TextItem* wifiPasswdText;
@@ -113,7 +121,6 @@ NumberField* displayCurrentAfterScaleText;
 NumberField* vBatMeasured;
 NumberField* vBatText;
 NumberField* hzText;
-NumberField* uidInput;
 NumberField* freeHeapText;
 NumberField* heapSizeText;
 NumberField* laserValue;
@@ -125,7 +132,7 @@ Menu* viewerMenu;
 Menu* targetTimeMenu;
 SubMenu* targetTimeSubMenu;
 
-FrameSection* frameSections = new FrameSection[5];
+FrameSection* frameSections = new FrameSection[4];
 
 volatile uint32_t triggerCount = 0;
 volatile timeMs_t lastTriggerMs = 0;

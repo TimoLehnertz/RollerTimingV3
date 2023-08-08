@@ -33,7 +33,7 @@
         }
 
         .content {
-            text-align: center;
+            /* text-align: center; */
         }
 
         h1 {
@@ -74,8 +74,26 @@
             gap: 1rem;
         }
 
+        .flex.column {
+            flex-direction: column;
+        }
+
+        .flex.space-between {
+            justify-content: space-between;
+        }
+
+        .flex.space-arround {
+            justify-content: space-arround;
+        }
+
+        .flex.start {
+            justify-content: start;
+            align-items: start;
+        }
+
         .error {
             color: rgb(206, 99, 99);
+            min-height: 1rem;
             /* padding-bottom: 0.5rem; */
             /* border-bottom: 1px solid rgb(206, 99, 99); */
         }
@@ -102,10 +120,6 @@
             border-top: 1px solid #444;
         }
 
-        .split-lap:not(:first-of-type) {
-
-        }
-
         .lap-index, .split-lap-index {
             color: #284746;
             font-style: italic;
@@ -125,7 +139,7 @@
         }
 
         .split-lap-distance {
-            width: 3em;
+            width: 5em;
         }
 
         #saved {
@@ -165,6 +179,15 @@
             color: white;
         }
 
+        input {
+            border: none;
+            border-bottom: 1px solid #333;
+        }
+
+        .percent {
+            width: 2rem;
+        }
+
         @media (max-width: 768px) {
             body {
                 padding-top: 1rem;
@@ -180,9 +203,7 @@
 <body>
     <div class="container">
         <div class="content">
-            <div class="error" id="error-message">
-
-            </div>
+            <div class="error" id="error-message"></div>
             <h1>Roller timing</h1>
             <hr>
             <br>
@@ -190,18 +211,86 @@
                 <div class="flex row">
                     <button class="toggle-btn active" id="viewerBtn" onclick="toggle('viewer')">Viewer</button>
                     <button class="toggle-btn" id="downloadBtn" onclick="toggle('download')">Download</button>
-                </div><div class="flex row">
                     <button class="toggle-btn" id="startGunBtn" onclick="toggle('startGun')">Start gun</button>
+                </div>
+                <div class="flex row">
+                    <button class="toggle-btn" id="displaySetupBtn" onclick="toggle('displaySetup')">Display setup</button>
+                    <button class="toggle-btn" id="couldUploadBtn" onclick="toggle('couldUpload')">RR Could upload</button>
                     <button class="toggle-btn" id="getStartedBtn" onclick="toggle('getStarted')">Get started</button>
+                </div>
+            </div>
+            <div class="page" id="couldUploadPage">
+                <h3>Roller results cloud upload</h3>
+                <p>Automatically upload your laps to <b>roller results</b> cloud</p>
+                <ol>
+                    <li>First create an account on use your existing one</li>
+                    <li>Enter your information below</li>
+                    <li>After trainings power up your device in WiFi range. Upload will start automatically</li>
+                    <li>Manage all your trainings data on <b>roller results</b></li>
+                </ol>
+                <p>Note:</p>
+                <ul>
+                    <li>This hotspot will not be available during upload</li>
+                    <li>Succsessfully uploaded sessions will be automatically deleted from this device</li>
+                </ul>
+                <br>
+                <div id="cloudUploadStatus"></div>
+                <br>
+                <div class="flex column start">
+                    <label for="username">Roller results email or username</label>
+                    <input type="text" id="username" placeholder="Username / email" required>
+                </div>
+                <br>
+                <div class="flex column start">
+                    <label for="wifiSSID">WiFi name (ssid)</label>
+                    <input type="text" id="wifiSSID" placeholder="WiFi name" required>
+                </div>
+                <br>
+                <div class="flex column start">
+                    <label for="wifiPassword">WiFi password (leave empty for open networks)</label>
+                    <input type="password" id="wifiPassword" placeholder="WiFi password">
+                </div>
+                <br>
+                <button class="download-btn" id="cloudUploadBtn" onclick="setupCloudUpload()">Setup cloud upload</button>
+            </div>
+            <div class="page" id="displaySetupPage">
+                <h3>Display setup</h3>
+                <div class="flex space-arround">
+                    <label for="displayBrightness">Display brightness:</label>
+                    <div>
+                        <input type="number" class="percent" id="displayBrightness" step="1" min="5" max="100" value="20" onchange="updateSettings()"> / 100
+                    </div>
+                </div>
+                <br>
+                <div class="flex space-arround">
+                    <label for="displayTime">Display time:</label>
+                    <div>
+                        <input type="number" id="displayTime" step="1" min="1" max="9999" value="7" onchange="updateSettings()">
+                        seconds
+                    </div>
+                </div>
+                <br>
+                <div class="flex space-arround">
+                    <label for="fontSize">Display font size</label>
+                    <select id="fontSize" onchange="updateSettings()">
+                        <option value="0">Large</option>
+                        <option value="1">Small</option>
+                    </select>
                 </div>
             </div>
             <div class="page" id="getStartedPage">
                 <h3>Get started guide</h3>
+                <p>Battery life</p>
+                <ul>
+                    <li>The laser stations without antenna and display last for more than 24h of use.</li>
+                    <li>The laser stations with antenna and display last for roughly 10 hours.</li>
+                    <li>The battery life of the display station depends on the display brightness. If the brightness is set to 100% the battery will be empty after 1h30. 5% brightness will give closer to 5h of operation.</li>
+                </ul>
                 <p style="text-align: left">Lorem ipsum dolor sit amet consectetur adipisicing elit. Consequuntur, totam eos. Laboriosam eius, dolorem deleniti molestiae sed omnis asperiores iure nulla commodi neque eaque cumque repellendus molestias quidem quos! Mollitia.</p>
             </div>
             <div class="page" id="startGunPage">
                 <br>
-                <p>This start gun is syncronized with your roller timing devices</p>
+                <p>Simulate a real starting situation</p>
                 <br>
                 <div class="flex row">
                     <button class="download-btn startGunBtn" onclick="startNow()">Start now</button>
@@ -241,7 +330,7 @@
         </div>
     </div>
 </body>
-<script>
+<script defer>
 "use strict";
 
 let debug = false;
@@ -251,8 +340,13 @@ let runningSessionName = null; // not known yet
 let viewerActive = false;
 
 function toggle(viewer) {
+    console.log("toggle: ", viewer);
     for (const element of document.getElementsByClassName('page')) {
         element.style.display = 'none';
+    }
+    if(document.getElementById(`${viewer}Page`) === null) {
+        console.log(`${viewer}Page was === null`);
+        return;
     }
     document.getElementById(`${viewer}Page`).style.display = 'block';
     for (const element of document.getElementsByClassName('toggle-btn')) {
@@ -279,124 +373,403 @@ if(startGunSpeed) {
     document.getElementById(startGunSpeed).checked = true;
 }
 
+function moduloWoPercent(x, y) {
+  return x - y * Math.floor(x / y);
+}
+
+function timeToStr(millis) {
+    // Calculate the individual time units
+    let milliseconds = moduloWoPercent(millis, 1000);
+    let seconds = Math.floor(moduloWoPercent(millis / 1000, 60));
+    let minutes = Math.floor(moduloWoPercent(millis / (1000 * 60), 60));
+    let hours = Math.floor(millis / (1000 * 60 * 60));
+    // Format the time string
+    let timeStr = '';
+    if (hours > 0) {
+        timeStr += String(hours).padStart(2, '0') + ':';
+    }
+    if (minutes > 0 || hours > 0) {
+        timeStr += String(minutes).padStart(2, '0') + ':';
+    }
+    timeStr += String(seconds).padStart(2, '0') + ':' + String(milliseconds).padStart(3, '0');
+    return timeStr;
+}
+
+function updateSettings() {
+    let xhr = new XMLHttpRequest();
+    const displayBirghtness = document.getElementById("displayBrightness").value;
+    const displayTime = document.getElementById("displayTime").value;
+    const fontSize = document.getElementById("fontSize").value;
+    xhr.open('GET', `/settings?displayBrightness=${displayBirghtness}&displayTime=${displayTime}&fontSize=${fontSize}`, true);
+
+    // Set up a callback function to handle the response
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            if (xhr.status === 200) {
+                // do nothing
+            } else {
+                logError("Could not change settings. Error: " + xhr.status);
+            }
+        }
+    };
+    // Send the request
+    xhr.send();
+}
+
+// const session = [
+//     {"triggerType":0,
+//         "timeMs":170148,
+//         "millimeters":34463
+//     },{"triggerType":0,
+//         "timeMs":171048,
+//         "millimeters":34463
+//     },
+//     {"triggerType":1,
+//         "timeMs":171148,
+//         "millimeters":34463
+//     },
+//     {"triggerType":2,
+//         "timeMs":177390,
+//         "millimeters":34463
+//     },
+//     {"triggerType":3,
+//         "timeMs":205626,
+//         "millimeters":34463
+//     }
+// ]
 
 const session = [
-    {
-        "triggerType": 0,
-        "timeMs": 29537,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":32486,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 37964,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":33604,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 40020,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":35049,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 91049,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":42056,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 94330,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":42214,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 100117,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":42503,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 109470,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":42652,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 113778,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":42822,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 148304,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":43342,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 159314,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":43549,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 160497,
-        "millimeters": 10000
+    {"triggerType":2,
+        "timeMs":47214,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 161278,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":98476,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 235602,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":103486,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 236715,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":104829,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 249528,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":105622,
+        "millimeters":0
     },
-    {
-        "triggerType": 0,
-        "timeMs": 259361,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":105939,
+        "millimeters":0
     },
-    {
-        "triggerType": 1,
-        "timeMs": 302347,
-        "millimeters": 0
+    {"triggerType":1,
+        "timeMs":106133,
+        "millimeters":0
     },
-    {
-        "triggerType": 2,
-        "timeMs": 310333,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":106323,
+        "millimeters":0
     },
-    {
-        "triggerType": 3,
-        "timeMs": 314337,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":106718,
+        "millimeters":0
     },
-    {
-        "triggerType": 3,
-        "timeMs": 345905,
-        "millimeters": 10000
+    {"triggerType":1,
+        "timeMs":108547,
+        "millimeters":0
     },
-    {
-        "triggerType": 1,
-        "timeMs": 536984,
-        "millimeters": 0
+    {"triggerType":1,
+        "timeMs":110906,
+        "millimeters":0
     },
-    {
-        "triggerType": 2,
-        "timeMs": 543023,
-        "millimeters": 10000
+    {"triggerType":2,
+        "timeMs":114166,
+        "millimeters":0
     },
-    // {
-    //     "triggerType": 3,
-    //     "timeMs": 544395,
-    //     "millimeters": 10000
-    // }
-];
+    {"triggerType":2,
+        "timeMs":116138,
+        "millimeters":1
+    },
+    {"triggerType":2,
+        "timeMs":117047,
+        "millimeters":2
+    },
+    {"triggerType":2,
+        "timeMs":117838,
+        "millimeters":3
+    },
+    {"triggerType":2,
+        "timeMs":118586,
+        "millimeters":4
+    },
+    {"triggerType":2,
+        "timeMs":118960,
+        "millimeters":5
+    },
+    {"triggerType":2,
+        "timeMs":120534,
+        "millimeters":6
+    },
+    {"triggerType":2,
+        "timeMs":120712,
+        "millimeters":7
+    },
+    {"triggerType":2,
+        "timeMs":124235,
+        "millimeters":8
+    },
+    {"triggerType":3,
+        "timeMs":130481,
+        "millimeters":0
+    },
+    {"triggerType":1,
+        "timeMs":146804,
+        "millimeters":0
+    },
+    {"triggerType":2,
+        "timeMs":150293,
+        "millimeters":0
+    },
+    {"triggerType":2,
+        "timeMs":152008,
+        "millimeters":1
+    },
+    {"triggerType":3,
+        "timeMs":157753,
+        "millimeters":0
+    },
+    {"triggerType":3,
+        "timeMs":159661,
+        "millimeters":0
+    },
+    {"triggerType":3,
+        "timeMs":161127,
+        "millimeters":0
+    },
+    {"triggerType":3,
+        "timeMs":161341,
+        "millimeters":0
+    },
+    {"triggerType":3,
+        "timeMs":170832,
+        "millimeters":0
+    },
+    {"triggerType":1,
+        "timeMs":212161,
+        "millimeters":0
+    },
+    {"triggerType":2,
+        "timeMs":217124,
+        "millimeters":0
+    },
+    {"triggerType":3,
+        "timeMs":219699,
+        "millimeters":0
+    },
+    {"triggerType":1,
+        "timeMs":235636,
+        "millimeters":0
+    },
+    {"triggerType":2,
+        "timeMs":238731,
+        "millimeters":0
+    },
+    {"triggerType":2,
+        "timeMs":250485,
+        "millimeters":1
+    },
+    {"triggerType":2,
+        "timeMs":253508,
+        "millimeters":2
+    },
+    {"triggerType":3,
+        "timeMs":258241,
+        "millimeters":0
+    },
+    {"triggerType":1,
+        "timeMs":280584,
+        "millimeters":0
+    },
+    {"triggerType":2,
+        "timeMs":285087,
+        "millimeters":0
+    },
+    {"triggerType":2,
+        "timeMs":285187,
+        "millimeters":1
+    },
+    {"triggerType":2,
+        "timeMs":293174,
+        "millimeters":2
+    },
+    {"triggerType":3,
+        "timeMs":297174,
+        "millimeters":0
+    }
+]
+
+// const session = [
+//     {
+//         "triggerType": 0,
+//         "timeMs": 29537,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 37964,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 40020,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 91049,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 94330,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 100117,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 109470,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 113778,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 148304,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 159314,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 160497,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 161278,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 235602,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 236715,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 249528,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 0,
+//         "timeMs": 259361,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 1,
+//         "timeMs": 302347,
+//         "millimeters": 0
+//     },
+//     {
+//         "triggerType": 2,
+//         "timeMs": 310333,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 3,
+//         "timeMs": 314337,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 3,
+//         "timeMs": 345905,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 1,
+//         "timeMs": 536984,
+//         "millimeters": 0
+//     },
+//     {
+//         "triggerType": 2,
+//         "timeMs": 543023,
+//         "millimeters": 10000
+//     },
+//     {
+//         "triggerType": 3,
+//         "timeMs": 544395,
+//         "millimeters": 10000
+//     },{
+//         "triggerType": 1,
+//         "timeMs": 536984,
+//         "millimeters": 0
+//     },
+// ];
 
 function isJsonString(str) {
     try {
@@ -410,6 +783,9 @@ function isJsonString(str) {
 function logError(error) {
     document.getElementById("error-message").innerText = error;
     console.log(error);
+    window.setTimeout(() => {
+        document.getElementById("error-message").innerText = "";
+    }, 5000);
 }
 
 function updateSaved(sessions) {
@@ -457,6 +833,26 @@ function loadSessions() {
                         updateSaved(json.sessions);
                         updateFreeSpace(json.bytesUsed, json.bytesTotal);
                     }
+                    if(json.displayBrightness) {
+                        document.getElementById("displayBrightness").value = json.displayBrightness;
+                    }
+                    if(json.displayTime) {
+                        document.getElementById("displayTime").value = json.displayTime;
+                    }
+                    if(json.fontSize) {
+                        document.getElementById("fontSize").value = json.fontSize;
+                    }
+                    if(json.username) {
+                        document.getElementById("username").value = json.username;
+                        document.getElementById("cloudUploadStatus").innerHTML = `Cloud upload is setup for ${json.username} via WiFi ${json.wifiSSID}.`;
+                        document.getElementById("cloudUploadBtn").innerText = `Update cloud upload settings`;
+                    }
+                    if(json.wifiSSID) {
+                        document.getElementById("wifiSSID").value = json.wifiSSID;
+                    }
+                    if(json.wifiPassword) {
+                        document.getElementById("wifiPassword").value = json.wifiPassword;
+                    }
                 } else {
                     logError("Error:" + xhr.responseText);
                 }
@@ -483,9 +879,9 @@ function loadSessions() {
     xhr.send();
 }
 
-function fetchSession(fileName, callback) {
+function fetchSession(fileName, limit, callback) {
     let xhr = new XMLHttpRequest();
-    xhr.open('GET', `/session?name=${fileName}`, true);
+    xhr.open('GET', `/session?name=${fileName}&limit=${limit}`, true);
 
     // Set up a callback function to handle the response
     xhr.onreadystatechange = function () {
@@ -512,7 +908,7 @@ function fetchSession(fileName, callback) {
 }
 
 function download(file) {
-    fetchSession(file, (succsess, session) => {
+    fetchSession(file, 100000, (succsess, session) => {
         if(succsess) {
             downloadCSV(session, file);
         }
@@ -526,10 +922,11 @@ const STATION_TRIGGER_TYPE_FINISH = 3;
 const STATION_TRIGGER_TYPE_NONE = 4;
 
 class SplitLap {
-    constructor(distance, splitTimeMs, splitIndex) {
+    constructor(distance, splitTimeMs, splitIndex, isFinish) {
         this.distance = distance;
         this.splitTimeMs = splitTimeMs;
         this.splitIndex = splitIndex;
+        this.isFinish = isFinish;
     }
 }
 
@@ -549,31 +946,37 @@ function sessionToLaps(session) {
     let lapCount = 0;
     let lapStart = 0;
     let lastTrigger = 0;
-    let lastMillimeters = 0;
+    let lastMillimeters = -1;
     let currentCheckpoint = 0;
+    let finishPending = false;
     for (const trigger of session) {
         if(lapStarted && (trigger.triggerType === STATION_TRIGGER_TYPE_FINISH || trigger.triggerType === STATION_TRIGGER_TYPE_START_FINISH)) {
             if(splitLaps.length > 0) {
-                splitLaps.push(new SplitLap(trigger.millimeters, trigger.timeMs - lastTrigger, currentCheckpoint++));
+                splitLaps.push(new SplitLap(trigger.millimeters, trigger.timeMs - lastTrigger, currentCheckpoint++, true));
             }
             laps.push(new Lap(lapCount++, trigger.timeMs - lapStart, splitLaps));
             splitLaps = [];
             lapStarted = false;
+            finishPending = false;
         }
         if(trigger.triggerType == STATION_TRIGGER_TYPE_START || trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
             lapStart = trigger.timeMs;
-            lastMillimeters = 0;
+            lastMillimeters = -1;
             lapStarted = true;
             currentCheckpoint = 0;
         }
+        if(trigger.triggerType == STATION_TRIGGER_TYPE_START) {
+            finishPending = true;
+        }
         if(lapStarted && trigger.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
             if(trigger.millimeters <= lastMillimeters) continue;
-            splitLaps.push(new SplitLap(trigger.millimeters, trigger.timeMs - lastTrigger, currentCheckpoint++));
+            splitLaps.push(new SplitLap(trigger.millimeters, trigger.timeMs - lastTrigger, currentCheckpoint++, false));
             lastMillimeters = trigger.millimeters;
+            finishPending = true;
         }
         lastTrigger = trigger.timeMs;
     }
-    if(splitLaps.length > 0) {
+    if(splitLaps.length > 0 || finishPending) {
         const lap = new Lap(lapCount++, 0, splitLaps);
         lap.done= false;
         laps.push(lap);
@@ -634,7 +1037,7 @@ function fetchViewer() {
         fetchFile = runningSessionName;
     }
     if(fetchFile !== null) { // file found
-        fetchSession(fetchFile, (succsess, session) => {
+        fetchSession(fetchFile, 50, (succsess, session) => {
             if(succsess) {
                 displayLaps(sessionToLaps(session), fetchFile);
             }
@@ -643,7 +1046,7 @@ function fetchViewer() {
     if(viewerActive && viewerFileName === null) {
         window.setTimeout(() => {
             fetchViewer();
-        }, 2000);
+        }, 1000);
     }
 }
 
@@ -677,13 +1080,13 @@ function displayLaps(laps, fileName) {
     for (const lap of laps.toReversed()) {
         viewer.innerHTML += `<div class="lap">
             <span class="lap-index">#${lap.index + 1}</span>
-            <span class="lap-time">${lap.done ? (lap.timeMs / 1000) + "s" : 'running...'}</span>`;
+            <span class="lap-time">${lap.done ? (timeToStr(lap.timeMs)) : 'running...'}</span>`;
         for (const splitLap of lap.splitLaps.toReversed()) {
             viewer.innerHTML += `
             <div class="split-lap">
                 <span class="split-lap-index">#${splitLap.splitIndex + 1}</span>
-                <span class="split-lap-distance">${splitLap.distance / 1000}m</span>
-                <span class="split-lap-time">${splitLap.splitTimeMs / 1000}s</span>
+                <span class="split-lap-distance">${splitLap.isFinish ? "finish" : splitLap.distance / 1000 + "m"}</span>
+                <span class="split-lap-time">${timeToStr(splitLap.splitTimeMs)}</span>
             </div>`;
         }
         viewer.innerHTML += "</div>";
@@ -721,53 +1124,57 @@ const startGunTimimngs = {
     }
 };
 
-let letBeepAudio = null;
-
-function sendStart() {
+function sendStart(delayMs, callback) {
     if(debug) {
-        var audio = new Audio('beep.mp3');
-        audio.play();
-        return;
+        callback(true);
     }
     const sendTime = Date.now();
     let xhr = new XMLHttpRequest();
-    xhr.open('GET', '/startNow', true);
-    // Set up a callback function to handle the response
+    xhr.open('GET', `/startIn?delayMs=${delayMs}`, true);
     xhr.onreadystatechange = function () {
-        if (xhr.readyState === XMLHttpRequest.DONE) {
-            if (xhr.status === 200) {
-                console.log("start signal receive time(ms):", Date.now() - sendTime);
-                letBeepAudio.play();
-            } else {
-                logError("Could not start. Error: " + xhr.status);
-            }
+        if(xhr.readyState === XMLHttpRequest.DONE) {
+            callback(xhr.status === 200);
         }
     };
-    // Send the request
     xhr.send();
 }
 
+let inPositionAudio = new Audio('inPosition.mp3');
+let setAudio = new Audio('set.mp3');
+let beepAudio = new Audio('beep.mp3');
+
+function isStartGunLoaded() {
+    return inPositionAudio.readyState === 4 && setAudio.readyState === 4 && beepAudio.readyState === 4; //4 = HAVE_ENOUGH_DATA
+}
+
 function startNow(switchPage = true) {
+    if(!isStartGunLoaded()) {
+        logError("Audio files are loading. Please Try again later");
+        return;
+    }
     if(switchPage) {
         toggle('viewer');
     }
-    letBeepAudio = new Audio('beep.mp3');
     toggleStartGunBtns(false);
     const speed = document.querySelector('input[name="startGunSpeed"]:checked').value;
     localStorage.setItem("startGunSpeed", speed);
     console.log(speed);
     const setTimeMs = getRandomArbitrary(startGunTimimngs[speed].setMin, startGunTimimngs[speed].setMax);
     const goTimMs = getRandomArbitrary(startGunTimimngs[speed].goMin, startGunTimimngs[speed].goMax);
-    var audio = new Audio('inPosition.mp3');
-    audio.play();
-    window.setTimeout(() => {
-        var audio = new Audio('set.mp3');
-        audio.play();
-        window.setTimeout(() => {
-            sendStart();
-            toggleStartGunBtns(true);
-        }, goTimMs);
-    }, setTimeMs);
+    inPositionAudio.play();
+    sendStart(setTimeMs + goTimMs, (succsess) => {
+        if(succsess) {
+            window.setTimeout(() => {
+                setAudio.play();
+                window.setTimeout(() => {
+                    beepAudio.play();
+                    toggleStartGunBtns(true);
+                }, goTimMs);
+            }, setTimeMs);
+        } else {
+            logError("Start gun could not reach server. Please check WiFi and try again");
+        }
+    });
 }
 
 function start15Sec() {
@@ -776,6 +1183,46 @@ function start15Sec() {
     window.setTimeout(() => {
         startNow(false);
     }, 15000);
+}
+
+function setupCloudUpload() {
+    document.getElementById("username").style.borderColor = "gray";
+    document.getElementById("wifiSSID").style.borderColor = "gray";
+    const username = document.getElementById("username").value;
+    if(username.length == 0) {
+        document.getElementById("username").style.borderColor = "red";
+        logError("Please fill in username");
+        return;
+    }
+    const wifiSSID = document.getElementById("wifiSSID").value;
+    if(wifiSSID.length == 0) {
+        document.getElementById("wifiSSID").style.borderColor = "red";
+        logError("Please fill in wifi name");
+        return;
+    }
+    const wifiPassword = document.getElementById("wifiPassword").value;
+    let xhr = new XMLHttpRequest();
+    const displayBirghtness = document.getElementById("displayBrightness").value;
+    const displayTime = document.getElementById("displayTime").value;
+
+    xhr.open('GET', `/settings?username=${username}&wifiSSID=${wifiSSID}&wifiPassword=${wifiPassword}`, true);
+    document.getElementById("cloudUploadBtn").enabled = false;
+    // Set up a callback function to handle the response
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            if (xhr.status === 200 || debug) {
+                document.getElementById("cloudUploadStatus").innerText = "Succsessfully setup cloud upload";
+                document.getElementById("cloudUploadStatus").style.color = "green";
+                document.getElementById("cloudUploadBtn").innerText = `Update cloud upload settings`;
+                // do nothing
+            } else {
+                logError("Could not change settings. Error: " + xhr.status);
+            }
+            document.getElementById("cloudUploadBtn").enabled = true;
+        }
+    };
+    // Send the request
+    xhr.send();
 }
 
 </script>

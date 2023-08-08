@@ -22,28 +22,34 @@ void isDisplayChanged();
 
 void writePreferences() {
   Serial.println("Writing to preferences");
-  preferences.putDouble("startDist", distFromStartInput->getValue());
+  // preferences.putDouble("startDist", distFromStartInput->getValue());
   preferences.putDouble("minDelay", minDelayInput->getValue());
   preferences.putDouble("brightness", displayBrightnessInput->getValue());
   preferences.putDouble("dispLapTime", displayTimeInput->getValue());
   preferences.putInt("isDisplay", isDisplaySelect->getValue());
-  preferences.putBool("isMaster", isMasterCB->isChecked());
   preferences.putInt("trainingsMode", trainingsModeSelect->getValue());
-  preferences.putInt("stationType", stationTypeSelect->getValue());
-  preferences.putInt("uid", uidInput->getValue());
+  // preferences.putInt("stationType", stationTypeSelect->getValue());
+  preferences.putBool("uploadEnabled", cloudUploadEnabled->isChecked());
+  preferences.putInt("fontSize", fontSizeSelect->getValue());
+  preferences.putString("wifiSSID", wifiSSID);
+  preferences.putString("wifiPassword", wifiPassword);
+  preferences.putString("username", username);
 }
 
 void readPreferences() {
   Serial.println("Reading from preferences");
-  distFromStartInput->setValue(preferences.getDouble("startDist"));
+  // distFromStartInput->setValue(preferences.getDouble("startDist"));
   minDelayInput->setValue(preferences.getDouble("minDelay"));
   displayBrightnessInput->setValue(preferences.getDouble("brightness"));
   displayTimeInput->setValue(preferences.getDouble("dispLapTime"));
-  isMasterCB->setChecked(preferences.getBool("isMaster"));
   isDisplaySelect->setValue(preferences.getInt("isDisplay"));
   trainingsModeSelect->setValue(preferences.getInt("trainingsMode"));
-  stationTypeSelect->setValue(preferences.getInt("stationType"));
-  uidInput->setValue(preferences.getInt("uid"));
+  // stationTypeSelect->setValue(preferences.getInt("stationType"));
+  cloudUploadEnabled->setChecked(preferences.getBool("uploadEnabled"));
+  fontSizeSelect->setValue(preferences.getInt("fontSize"));
+  wifiSSID = preferences.getString("wifiSSID");
+  wifiPassword = preferences.getString("wifiPassword");
+  username = preferences.getString("username");
 }
 
 /**
@@ -56,6 +62,11 @@ void resetAllSettings() {
   displayTimeInput->setValue(3);
   trainingsModeSelect->setValue(TRAININGS_MODE_NORMAL);
   stationTypeSelect->setValue(STATION_TRIGGER_TYPE_START_FINISH);
+  cloudUploadEnabled->setChecked(false);
+  fontSizeSelect->setValue(0);
+  wifiSSID = "";
+  wifiPassword = "";
+  username = "";
   // determine if this is a display or laser by checking if PIN_LASER is floating
   // u8_t floatingCount = 0;
   // for (size_t i = 0; i < 100; i++) {
@@ -70,7 +81,6 @@ void resetAllSettings() {
   // bool displayStation = floatingCount > 10; // is floating
   bool displayStation = true; // likely more often updated
   isDisplaySelect->setValue(displayStation);
-  isMasterCB->setChecked(displayStation);
   isDisplayChanged();
 }
 

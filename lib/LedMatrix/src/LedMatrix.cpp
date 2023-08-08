@@ -255,7 +255,7 @@ void LedMatrix::timeToStr(int32_t msTime, char* hStr, char* mStr, char* sStr, ch
   }
 }
 
-void LedMatrix::printTime(int x, int y, int32_t msSigned, bool oneMsDigit) {
+void LedMatrix::printTimeBig(int x, int y, int32_t msSigned, bool oneMsDigit) {
     int32_t ms = abs(msSigned);
     char hStr[10] = "\0";
     char mStr[3]  = "\0";
@@ -265,8 +265,9 @@ void LedMatrix::printTime(int x, int y, int32_t msSigned, bool oneMsDigit) {
     timeToStr(ms, hStr, mStr, sStr, msStr, oneMsDigit);
     if(*mStr) { // minutes
         x = print(mStr, x - 2, y + 2, CRGB(0x3333FF), FONT_SIZE_SMALL + 1);
-        dot(x - 1, 2, CRGB(0x666666));
-        dot(x - 1, 5, CRGB(0x666666));
+        x++;
+        dot(x - 1, 3, CRGB::Red);
+        dot(x - 1, 5, CRGB::Red);
         x++;
     }
     if(sStr[0] != '0' || *mStr) {
@@ -275,16 +276,53 @@ void LedMatrix::printTime(int x, int y, int32_t msSigned, bool oneMsDigit) {
         x += 5;
     }
     x = print(sStr[1], x, y, CRGB(0x00FF00), MONOSPACE); // seconds
-    dot(x, 6, CRGB(0x666666));
-    dot(x, 7, CRGB(0x666666));
+    dot(x, 6, CRGB::Red); // was 0x666666
+    dot(x, 7, CRGB::Red);
     x++;
-    dot(x, 6, CRGB(0x666666));
-    dot(x, 7, CRGB(0x666666));
+    dot(x, 6, CRGB::Red);
+    dot(x, 7, CRGB::Red);
     x++;
     x = print(msStr[0], x, y, CRGB(0xFF33FF), MONOSPACE + 1); // millis 1
     if(msStr[1]) {
-        x = print(msStr[1], x, y, CRGB(0xFF33FF), MONOSPACE + 1); // millis 2
-        x = print(msStr[2], x, y, CRGB(0xFF33FF), MONOSPACE + 1); // millis 3
+        if(x < 32 - 4) {
+            x = print(msStr[1], x, y, CRGB(0xFF33FF), MONOSPACE + 1); // millis 2
+        }
+        if(x < 32 - 4) {
+            x = print(msStr[2], x, y, CRGB(0xFF33FF), MONOSPACE + 1); // millis 3
+        }
     }
-//   x = print(msStr + 1, x, y + 3, CRGB::GreenYellow, FONT_SIZE_SMALL + 1);
+}
+
+void LedMatrix::printTimeSmall(int x, int y, int32_t msSigned, bool oneMsDigit) {
+    int32_t ms = abs(msSigned);
+    char hStr[10] = "\0";
+    char mStr[3]  = "\0";
+    char sStr[3];
+    char msStr[4];
+    // x+=2;
+    timeToStr(ms, hStr, mStr, sStr, msStr, oneMsDigit);
+    if(*mStr) { // minutes
+        x = print(mStr, x - 2, y, CRGB(0x3333FF), FONT_SIZE_SMALL + 1);
+        // x++;
+        dot(x - 1, y + 1, CRGB::Red);
+        dot(x - 1, y + 3, CRGB::Red);
+        // x++;
+    }
+    if(sStr[0] != '0' || *mStr) {
+        x = print(sStr[0], x, y, CRGB(0x00FF00), FONT_SIZE_SMALL + MONOSPACE + 1); // seconds
+    } else {
+        x += 4;
+    }
+    x = print(sStr[1], x, y, CRGB(0x00FF00), FONT_SIZE_SMALL + MONOSPACE); // seconds
+    dot(x, y + 4, CRGB::Red);
+    x++;
+    x = print(msStr[0], x, y, CRGB(0xFF33FF), FONT_SIZE_SMALL + MONOSPACE + 1); // millis 1
+    if(msStr[1]) {
+        if(x < 32 - 4) {
+            x = print(msStr[1], x, y, CRGB(0xFF33FF), FONT_SIZE_SMALL + MONOSPACE + 1); // millis 2
+        }
+        if(x < 32 - 4) {
+            x = print(msStr[2], x, y, CRGB(0xFF33FF), FONT_SIZE_SMALL + MONOSPACE + 1); // millis 3
+        }
+    }
 }

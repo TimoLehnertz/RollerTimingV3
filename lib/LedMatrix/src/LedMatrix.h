@@ -46,7 +46,8 @@ public:
     void line(int x1, int y1, int x2, int y2, CRGB color);
     void rect(int x1, int y1, int x2, int y2, CRGB color);
     void dot(int x, int y, CRGB color);
-    void printTime(int x, int y, int32_t ms, bool oneMsDigit = false);
+    void printTimeBig(int x, int y, int32_t ms, bool oneMsDigit = false);
+    void printTimeSmall(int x, int y, int32_t ms, bool oneMsDigit = false);
 
     static int textWidth(const char* str, uint8_t settings = FONT_SETTINGS_DEFAULT);
     static int boundsFromChar(char digit, uint8_t settings);

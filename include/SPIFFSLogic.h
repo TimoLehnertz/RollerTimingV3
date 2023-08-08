@@ -22,6 +22,10 @@ struct Trigger {
   timeMs_t timeMs; // overflows after 25 days
   uint16_t millimeters;
   uint8_t triggerType;
+
+  bool operator == (const Trigger& other) {
+    return other.timeMs == timeMs && other.millimeters == millimeters && other.triggerType == triggerType;
+  }
 };
 // #endif
 
@@ -49,6 +53,7 @@ bool sortCompareTriggers(const Trigger& a, const Trigger& b) {
 struct TrainingsMeta {
   size_t fileSize;
   String fileName;
+  bool isRunning;
 };
 
 struct TrainingsSession : public DoubleLinkedList<Trigger> {
@@ -59,6 +64,7 @@ public:
     this->filePath = String();
     this->write = false;
     this->isLoaded = false;
+    this->lapStarted = false;
   }
 
   TrainingsSession(String fileName, bool write) : DoubleLinkedList() {
@@ -67,6 +73,7 @@ public:
     this->filePath = String("/") + fileName;
     this->write = write;
     this->isLoaded = write;
+    this->lapStarted = false;
   }
 
   bool loadFromStorage() {
@@ -80,6 +87,7 @@ public:
       pushBack(trigger);
     }
     file.close();
+    sortTriggers();
     return true;
   }
 
@@ -93,8 +101,14 @@ public:
     }
     pushBack(trigger); // add and sort in ram
     sortTriggers();
-    if(trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH || trigger.triggerType == STATION_TRIGGER_TYPE_FINISH) {
+    if(lapStarted && (trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH || trigger.triggerType == STATION_TRIGGER_TYPE_FINISH)) {
       laps++;
+    }
+    if(trigger.triggerType == STATION_TRIGGER_TYPE_START || trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
+      lapStarted = true;
+    }
+    if(trigger.triggerType == STATION_TRIGGER_TYPE_FINISH) {
+      lapStarted = false;
     }
   }
 
@@ -108,6 +122,22 @@ public:
     sort(sortCompareTriggers);
   }
 
+  /**
+   * Assume list is sorted by time
+   * Iterate backwards
+   */
+  bool triggerExists(const Trigger& trigger) {
+    Node<Trigger>* current = tail;
+    while(current) {
+      if(current->data.timeMs < trigger.timeMs)
+        break;
+      if(current->data == trigger)
+        return true;
+      current = current->prev;
+    }
+    return false;
+  }
+
   size_t getTriggerCount() {
     return getSize();
   }
@@ -115,6 +145,99 @@ public:
   timeMs_t getTimeSinceLastTrigger() {
     if(getSize() == 0) return 0;
     return millis() - getLast().timeMs;
+  }
+
+  timeMs_t getTimeSinceLastSplit() {
+    // return 0;
+    if(getSize() == 0) return INT32_MAX;
+    Node<Trigger>* current = tail;
+    Node<Trigger>* lastFinish = nullptr;
+    Node<Trigger>* lastCheckpoint = nullptr;
+    while(current) {
+      if(lastFinish && current->data.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
+        return millis() - lastFinish->data.timeMs;
+      }
+      if(lastCheckpoint && current->data.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT && current->data.millimeters >= lastCheckpoint->data.millimeters) {
+        return INT32_MAX; // same or bigger checkpoint
+      }
+      if(lastCheckpoint && (current->data.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT || current->data.triggerType == STATION_TRIGGER_TYPE_START || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH)) {
+        return millis() - lastCheckpoint->data.timeMs;
+      }
+      if(lastFinish && (current->data.triggerType == STATION_TRIGGER_TYPE_FINISH || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH)) {
+        return INT32_MAX; // passed already 2 finishes. cant be split time here
+      }
+      if(current->data.triggerType == STATION_TRIGGER_TYPE_FINISH || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
+        lastFinish = current;
+      }
+      if(current->data.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
+        lastCheckpoint = current;
+      }
+      current = current->prev;
+    }
+    return INT32_MAX;
+  }
+
+  timeMs_t getLastSplitTime() {
+    // return 0;
+    if(getSize() == 0) return 0;
+    Node<Trigger>* current = tail;
+    Node<Trigger>* lastFinish = nullptr;
+    Node<Trigger>* lastCheckpoint = nullptr;
+    while(current) {
+      if(lastFinish && current->data.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) { // checkpoint to finish
+        return lastFinish->data.timeMs - current->data.timeMs;
+      }
+      if(lastCheckpoint && current->data.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT && current->data.millimeters >= lastCheckpoint->data.millimeters) {
+        return 0;
+      }
+      if(lastCheckpoint && (current->data.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT || current->data.triggerType == STATION_TRIGGER_TYPE_START || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH)) {
+        return lastCheckpoint->data.timeMs - current->data.timeMs; // start to checkpoint or checkpoint to checkpoint
+      }
+      if(current->data.triggerType == STATION_TRIGGER_TYPE_FINISH || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
+        lastFinish = current;
+      }
+      if(current->data.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
+        lastCheckpoint = current;
+      }
+      current = current->prev;
+    }
+    return 0;
+  }
+
+  timeMs_t getTimeSinceLastFinish() {
+    // return 0;
+    if(getSize() == 0) return INT32_MAX;
+    Node<Trigger>* current = tail;
+    Node<Trigger>* lastFinish = nullptr;
+    while(current) {
+      if(current->data.triggerType == STATION_TRIGGER_TYPE_FINISH || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
+        lastFinish = current;
+      }
+      if(lastFinish && (current->data.triggerType == STATION_TRIGGER_TYPE_START || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH)) {
+        return millis() - lastFinish->data.timeMs;
+      }
+      current = current->prev;
+    }
+    return INT32_MAX;
+  }
+
+  bool isLapStarted() {
+    return lapStarted;
+  }
+
+  timeMs_t getTimeSinceLastStart() {
+    if(getSize() == 0) return INT32_MAX;
+    Node<Trigger>* current = tail;
+    while(current) {
+      if(current->data.triggerType == STATION_TRIGGER_TYPE_FINISH) {
+        return INT32_MAX;
+      }
+      if(current->data.triggerType == STATION_TRIGGER_TYPE_START || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
+        return millis() - current->data.timeMs;
+      }
+      current = current->prev;
+    }
+    return INT32_MAX;
   }
 
   const Trigger& getTrigger(size_t index) {
@@ -129,8 +252,22 @@ public:
    * Looks for all types of triggers
   */
   timeMs_t getLastLapMs() {
-    if(getSize() < 2) return 0;
-    return getLast().timeMs - get(getSize() - 2).timeMs;
+    if(getSize() == 0) return INT32_MAX;
+    Node<Trigger>* current = tail;
+    Node<Trigger>* lastFinish = nullptr;
+    while(current) {
+      if(lastFinish && (current->data.triggerType == STATION_TRIGGER_TYPE_START || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH)) {
+        return lastFinish->data.timeMs - current->data.timeMs;
+      }
+      // if(lastFinish && current->data.triggerType == STATION_TRIGGER_TYPE_FINISH) {
+      //   return INT32_MAX; // finish after finish cant be a complete lap
+      // }
+      if(current->data.triggerType == STATION_TRIGGER_TYPE_FINISH || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
+        lastFinish = current;
+      }
+      current = current->prev;
+    }
+    return INT32_MAX;
   }
 
   String getFileName() {
@@ -142,6 +279,7 @@ private:
   size_t laps;
   bool write;
   bool isLoaded;
+  bool lapStarted;
 };
 
 class SPIFFSLogic {
@@ -181,6 +319,7 @@ public:
       TrainingsMeta trainingsMeta = TrainingsMeta();
       trainingsMeta.fileName = String(sessionFile.name());
       trainingsMeta.fileSize = sessionFile.size();
+      trainingsMeta.isRunning = false;
       trainingsMetas.pushBack(trainingsMeta);
       sessionFile.close();
     }
@@ -203,15 +342,21 @@ public:
     if(!running) return;
     activeTraining.addTrigger(trigger);
     trainingsMetas.get(activeTrainingsIndex).fileSize = activeTraining.getFileSize();
+    trainingsMetas.get(activeTrainingsIndex).isRunning = true;
+  }
+
+  bool triggerExists(const Trigger& trigger) {
+    if(!running) return false;
+    return activeTraining.triggerExists(trigger);
   }
 
   bool startNewSession() {
     if(!running) return false;
     if(activeTraining.getFileSize() > 0) {
-      trainingsMetas.pushBack(TrainingsMeta{ activeTraining.getFileSize(), activeTraining.getFileName() });
+      trainingsMetas.pushBack(TrainingsMeta{ activeTraining.getFileSize(), activeTraining.getFileName(), false });
     }
     activeTraining = TrainingsSession(getFileNameForNewTraining(), true);
-    activeTrainingsIndex = trainingsMetas.pushBack(TrainingsMeta{ activeTraining.getFileSize(), activeTraining.getFileName() });
+    activeTrainingsIndex = trainingsMetas.pushBack(TrainingsMeta{ activeTraining.getFileSize(), activeTraining.getFileName(), true });
     return true;
   }
 
@@ -234,13 +379,35 @@ public:
     return activeTraining;
   }
 
+  bool deleteSession(String fileName) {
+    File file = SPIFFS.open(String("/") + fileName);
+    if(!file) return false;
+    bool succsess = SPIFFS.remove(file.path());
+    if(!succsess) return false;
+    size_t i = 0;
+    for (auto &&trainingsMeta : trainingsMetas) {
+      if(trainingsMeta.fileName == fileName) {
+        trainingsMetas.removeIndex(i);
+        if(i == activeTrainingsIndex) {
+          return false; // dont delete active training
+        }
+        if(i < activeTrainingsIndex) {
+          activeTrainingsIndex--;
+        }
+        break;
+      }
+      i++;
+    }
+    return true;
+  }
+
   void deleteAllSessions() {
     File root = SPIFFS.open("/");
     while(File sessionFile = root.openNextFile()) {
       if(!String(sessionFile.name()).endsWith(".rt")) {
         continue;
       }
-      bool succsess = SPIFFS.remove(String(sessionFile.path()) + "/" + String(sessionFile.name()));
+      bool succsess = SPIFFS.remove(sessionFile.path());
       Serial.printf("Deleting %s/%s succsess: %i\n", sessionFile.path(), String(sessionFile.name()), succsess);
     }
     trainingsMetas.clear();
@@ -264,11 +431,11 @@ private:
           Serial.printf("%s/\n", f.name());
           listFiles(f, intends + 1);
         } else {
-          if(f.size() > 1024) {
-            Serial.printf("%s (%ikb)\n", f.name(), round(f.size() / 1024));
-          } else {
+          // if(f.size() > 1024) {
+          //   Serial.printf("%s (%ikb)\n", f.name(), round(f.size() / 1024));
+          // } else {
             Serial.printf("%s (%ibytes)\n", f.name(), f.size());
-          }
+          // }
         }
         f.close();
       }

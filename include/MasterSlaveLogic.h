@@ -13,28 +13,39 @@
 #include <WiFiLogic.h>
 #include <Sound.h>
 #include <GuiLogic.h>
+#include <radio.h>
 #include <DoubleLinkedList.h>
-
-#define MAX_SLAVE_TRIGGERS 256
 
 void guiRemoveConnection(uint8_t address);
 void guiSetConnection(uint8_t address, int millimeters, uint8_t lq, uint8_t stationType);
 
-struct SlaveLaser {
-    uint8_t address; // actual MasterSlave connection containing metadata
-    uint16_t millimeters; // the number of millimeters between this station and the start
-    uint16_t triggerIndex; // holds the index of the last received trigger
-    uint16_t uid; // number identifying the device
-    uint8_t stationType;
-    bool connected;
-};
-
-DoubleLinkedList<SlaveLaser> slaveLasers = DoubleLinkedList<SlaveLaser>(); // for masters
 DoubleLinkedList<Trigger> slaveTriggers = DoubleLinkedList<Trigger>(); // for slaves
 
+/**
+ * Slave variables
+ */
 bool timeSynced = false;
 timeMs_t lastTimeSyncMs = 0;
 timeMs_t timeSyncOffset = 0;
+timeMs_t nextSlaveTriggerSend = 0;
+timeMs_t nextTriggerSend = 0;
+bool masterConnected = false;
+
+
+/**
+ * Master variabled
+ */
+timeMs_t lastTimeSync = 0;
+
+void sendTrigger(Trigger& trigger) {
+    Serial.println("Sending trigger");
+    sceduleSend((uint8_t*) &trigger, sizeof(Trigger));
+}
+
+void sendTimeSync() {
+    Serial.println("Sending time sync");
+    sceduleTimeSync();
+}
 
 bool isTimeSynced() {
     return timeSynced;
@@ -44,219 +55,112 @@ timeMs_t localTimeToMasterTime(timeMs_t localTimeMs) {
     return localTimeMs + timeSyncOffset;
 }
 
-void addSlaveLaser(SlaveLaser slaveLaser) {
-    Serial.printf("Discovered new laser on address %i. uid: %i\n", slaveLaser.address, slaveLaser.uid);
-    slaveLasers.pushBack(slaveLaser);
-}
-
-SlaveLaser* getLaserByAddress(uint8_t address) {
-    for (SlaveLaser& slaveLaser : slaveLasers) {
-        if(slaveLaser.address == address) {
-            return &slaveLaser;
-        }
-    }
-    
-    // for (size_t i = 0; i < slaveLasers.size(); i++) {
-    //     if(slaveLasers.get(i)->address == address) {
-    //         return slaveLasers.get(i);
-    //     }
-    // }
-    return nullptr;
-}
-
-SlaveLaser* getLaserByUid(uint16_t uid) {
-    for (SlaveLaser& slaveLaser : slaveLasers) {
-        if(slaveLaser.uid == uid) {
-            return &slaveLaser;
-        }
-    }
-    // for (size_t i = 0; i < slaveLasers.size(); i++) {
-    //     if(slaveLasers.get(i)->uid == uid) {
-    //         return slaveLasers.get(i);
-    //     }
-    // }
-    return nullptr;
-}
-
-void SlaveFoundMasterCallbackFunc(uint8_t ownAddress) {
-    Serial.printf("Found master. New address: %i\n", ownAddress);
-    playSoundNewConnection();
-}
-
-void SlaveLostMasterCallbackFunc() {
-    Serial.println("Master disconnected");
-    timeSynced = false;
-    playSoundLostConnection();
-}
-
-void MasterGotNewConnectionCallbackFunc(Connection* connection) {
-    Serial.printf("New connection on address %i\n", connection->address);
-    // gui will handle sound
-}
-
-void SlaveDisconnectedCallbackFunc(uint8_t slaveAddress) {
-    Serial.printf("Slave with address %i disconnected\n", slaveAddress);
-    SlaveLaser* slaveLaser = getLaserByAddress(slaveAddress);
-    if(!slaveLaser) return;
-    slaveLaser->connected = false;
-    guiRemoveConnection(slaveAddress);
-    // gui will handle sound
-}
-
-struct TriggersMsgMasterToSlave {
-    uint16_t triggerIndex; // the trigger index
-    uint16_t slaveUid;
-};
-
-struct TriggersMsgSlaveToMaster {
-
-    uint16_t uid; // slave uid
-    uint16_t millimeters; // slave uid
-    uint8_t stationType;
-    bool rebootedFlag;
-    bool triggerFlag;
-    Trigger trigger; // 0 - 3 triggers
-};
-
-void triggersMasterDataCallback(uint8_t address, uint8_t* data, uint8_t* dataSize) {
-    SlaveLaser* slaveLaser = getLaserByAddress(address);
-    uint16_t triggerIndex = 0;
-    uint16_t slaveUid = 0;
-    if(slaveLaser) {
-        triggerIndex = slaveLaser->triggerIndex;
-        slaveUid = slaveLaser->uid;
-    }
-    TriggersMsgMasterToSlave masterToSlave = TriggersMsgMasterToSlave{ triggerIndex, slaveUid };
-    memcpy(data, &masterToSlave, sizeof(TriggersMsgMasterToSlave));
-    *dataSize = sizeof(TriggersMsgMasterToSlave);
-}
-
-void triggersSlaveDataCallback(uint8_t* data, uint8_t dataSize, uint8_t* response, uint8_t* responseSize) {
-    if(dataSize != sizeof(TriggersMsgMasterToSlave)) { // probably incorrect version
-        return;
-    }
-    TriggersMsgMasterToSlave* masterToSlave = (TriggersMsgMasterToSlave*) data;
-    TriggersMsgSlaveToMaster slaveToMaster;
-    slaveToMaster.uid = getUid();
-    slaveToMaster.rebootedFlag = false;
-    slaveToMaster.millimeters = distFromStartInput->getValue() * 1000;
-    slaveToMaster.stationType = stationTypeSelect->getValue();
-    slaveToMaster.triggerFlag = false;
-    uint8_t sendTriggers = 0;
-    // Serial.printf("Master wants %i, i got %i\n", masterToSlave->triggerIndex, slaveTriggers.size());
-    if(masterToSlave->slaveUid == getUid()) {
-        if(!isTimeSynced()) {
-            // dont send any triggers yet
-        } else if(masterToSlave->triggerIndex > slaveTriggers.getSize() || masterToSlave->triggerIndex >= MAX_SLAVE_TRIGGERS) { // Slave must have rebooted
-            Serial.printf("I seem to have rebooted or have been overflowing. Master wants: %i, i got: %i\n", masterToSlave->triggerIndex, slaveTriggers.getSize());
-            slaveTriggers.clear();
-            slaveToMaster.rebootedFlag = true;
-        } else {
-            for (size_t i = masterToSlave->triggerIndex; i < min(int(slaveTriggers.getSize()), int(masterToSlave->triggerIndex + 1)); i++) { // send max 1 triggers
-                Trigger& trigger = slaveTriggers.get(i);
-                slaveToMaster.trigger = trigger;
-                slaveToMaster.trigger.timeMs = localTimeToMasterTime(trigger.timeMs); // convert time
-                slaveToMaster.triggerFlag = true;
-                Serial.printf("Sending trigger of type: %i\n", trigger.triggerType);
-            }
-        }
-    } else {
-        Serial.printf("uid missmatch %i != %i\n", masterToSlave->slaveUid, getUid());
-    }
-    *responseSize = sizeof(TriggersMsgSlaveToMaster);
-    memcpy(response, &slaveToMaster, *responseSize);
-}
-
-void triggersMasterReceiveCallback(uint8_t* data, uint8_t size, uint8_t slaveAddress) {
-    // Serial.printf("slave data (%i) from %i\n", size, slaveAddress);
-    if(size < sizeof(TriggersMsgSlaveToMaster)) return;
-    TriggersMsgSlaveToMaster* slaveToMaster = (TriggersMsgSlaveToMaster*) data;
-    SlaveLaser* slaveLaser = getLaserByUid(slaveToMaster->uid);
-    if(!slaveLaser) {
-        SlaveLaser slaveLaser = SlaveLaser{ slaveAddress, slaveToMaster->millimeters, 0, slaveToMaster->uid, slaveToMaster->stationType, true };
-        addSlaveLaser(slaveLaser);
-        return; // only add for now
-    }
-    slaveLaser->address = slaveAddress; // in case address changed
-    slaveLaser->millimeters = slaveToMaster->millimeters;
-    slaveLaser->stationType = slaveToMaster->stationType;
-    if(slaveToMaster->rebootedFlag) {
-        Serial.println("Slave has rebooted. Resetting triggerIndex");
-        slaveLaser->triggerIndex = 0;
-    } else if(slaveToMaster->triggerFlag) {
-        slaveLaser->triggerIndex++;
-        masterTrigger(slaveToMaster->trigger);
-        Serial.printf("Received trigger for master time: %i from uid: %i at address %i, new triggerindex: %i, triggerType: %i\n", slaveToMaster->trigger.timeMs, slaveToMaster->uid, slaveAddress, slaveLaser->triggerIndex, slaveToMaster->trigger.triggerType);
-    }
-}
-
 struct TimeSyncMasterToSlave {
     timeMs_t currentTimeMs;
 };
 
-struct TimeSyncSlaveToMaster {
-    int32_t variance;
-};
-
-void timeSyncMasterDataCallback(uint8_t address, uint8_t* data, uint8_t* dataSize) {
-    TimeSyncMasterToSlave* response = (TimeSyncMasterToSlave*) data;
-    response->currentTimeMs = millis();
-    *dataSize = sizeof(TimeSyncMasterToSlave);
-}
-
-void timeSyncSlaveDataCallback(uint8_t* data, uint8_t dataSize, uint8_t* response, uint8_t* responseSize) {
-    if(dataSize != sizeof(TimeSyncMasterToSlave)) {
-        Serial.println("Invalid size");
-        return;
-    }
-    TimeSyncMasterToSlave* masterToSlave = (TimeSyncMasterToSlave*) data;
-    long timeSyncOffsetBefore = timeSyncOffset;
-    lastTimeSyncMs = millis();
-    timeSynced = true;
-    timeSyncOffset = masterToSlave->currentTimeMs - millis();
-    int32_t variance = timeSyncOffsetBefore - long(timeSyncOffset);
-    *((TimeSyncSlaveToMaster*) response) = TimeSyncSlaveToMaster{ variance };
-    *responseSize = sizeof(TimeSyncSlaveToMaster);
-    Serial.printf("Synced time with master. offset: %i, variance: %i\n", timeSyncOffset, variance);
-}
-
-void timeSyncMasterReceiveCallback(uint8_t* data, uint8_t size, uint8_t slaveAddress) {
-    if(size != sizeof(TimeSyncSlaveToMaster)) {
-        Serial.println("Invalid size");
-        return;
-    }
-    TimeSyncSlaveToMaster* slaveToMaster = (TimeSyncSlaveToMaster*) data;
-    Serial.printf("Time sync with address %i. Variance: %ims\n", slaveAddress, slaveToMaster->variance);
-}
-
 void beginMasterSlaveLogic() {
-    masterSlave.setMasterGotNewConnectionCallback(MasterGotNewConnectionCallbackFunc);
-    masterSlave.setSlaveDisconnectedCallback(SlaveDisconnectedCallbackFunc);
-    masterSlave.setSlaveLostMasterCallback(SlaveLostMasterCallbackFunc);
-    masterSlave.setSlaveFoundMasterCallback(SlaveFoundMasterCallbackFunc);
-    masterSlave.setMaster(isMasterCB->isChecked());
-    masterSlave.addComunication(1, triggersMasterDataCallback, triggersSlaveDataCallback, triggersMasterReceiveCallback, sizeof(TriggersMsgSlaveToMaster));
-    masterSlave.addComunication(50, timeSyncMasterDataCallback, timeSyncSlaveDataCallback, timeSyncMasterReceiveCallback, sizeof(TimeSyncSlaveToMaster));
-    masterSlave.begin();
+
 }
 
-void slaveTrigger(timeMs_t atMs, uint8_t triggerType) {
-    slaveTriggers.pushBack(Trigger { atMs, uint16_t(distFromStartInput->getValue() * 1000), triggerType });
-    Serial.printf("Slave trigger #%i, triggerType: %i\n", slaveTriggers.getSize(), triggerType);
+void slaveTrigger(timeMs_t atMs, uint8_t triggerType, uint16_t millimeters) {
+    Trigger trigger = Trigger { atMs, millimeters, triggerType };
+    trigger.timeMs += timeSyncOffset;
+    slaveTriggers.pushBack(trigger);
+    Serial.printf("Slave trigger #%i, triggerType: %i, millimeters: %i\n", slaveTriggers.getSize(), triggerType, millimeters);
+}
+
+void radioReceived(const uint8_t* byteArr, size_t size) {
+    if(isDisplaySelect->getValue()) {
+        if(size == sizeof(Trigger)) {
+            if(lastTimeSync == 0) {
+                return; // cant be synced yet
+            }
+            Trigger trigger = *((Trigger*) byteArr);
+            timeMs_t timeVariance = abs(trigger.timeMs - timeMs_t(millis()));
+            if(timeVariance < 15000) {
+                if(!spiffsLogic.triggerExists(trigger)) {
+                    masterTrigger(trigger);
+                    Serial.printf("Received trigger at %ims (time of receive: %ims)\n", trigger.timeMs, millis());
+                } else {
+                    Serial.println("Received already existing trigger");
+                }
+            } else {
+                Serial.printf("Received trigger that was off by %ims. skipping", timeVariance);
+            }
+            sendTrigger(trigger); // copy that
+        } else {
+            Serial.printf("not trigger size: %i!=%i\n", size, sizeof(Trigger));
+        }
+    } else { // slave
+        if(size == sizeof(Trigger)) { // trigger copy
+            Trigger trigger = *((Trigger*) byteArr);
+            if(slaveTriggers.getSize() > 0 && slaveTriggers.getFirst() == trigger) {
+                Serial.println("Master got my trigger");
+                slaveTriggers.removeIndex(0);
+                masterConnected = true;
+            }
+        } else if(size == sizeof(uint32_t)) { // time sync
+            if(slaveTriggers.getSize() > 0 && timeSynced) {
+                Serial.println("Skipped time sync");
+                return; // only allow time syncs when there are no triggers floating arround
+            }
+            for (auto &&slaveTrigger : slaveTriggers) { // restoring to local time
+                slaveTrigger.timeMs -= timeSyncOffset;
+            }
+            uint32_t masterTime = *((uint32_t*) byteArr);
+            masterTime += radio.getTimeOnAir(sizeof(uint32_t)) / 1000;
+            long timeSyncOffsetBefore = timeSyncOffset;
+            timeSyncOffset = timeMs_t(masterTime) - timeMs_t(millis());
+            int32_t variance = timeSyncOffsetBefore - long(timeSyncOffset);
+            Serial.printf("Synced time with master. offset: %i, variance: %i\n", timeSyncOffset, variance);
+            if(timeSynced && abs(variance) > 1000) { // time was synced before
+                Serial.println("Time sync variance was too big. Assume master has rebooted. Deleting qued triggers");
+                playSoundNewConnection();
+                slaveTriggers.clear();
+            }
+            for (auto &&slaveTrigger : slaveTriggers) { // applying master time
+                slaveTrigger.timeMs += timeSyncOffset;
+            }
+            timeSynced = true;
+            lastTimeSyncMs = millis();
+            if(!masterConnected) {
+                playSoundNewConnection();
+            }
+            masterConnected = true;
+        }
+    }
 }
 
 void handleMasterSlaveLogic() {
-    masterSlave.handle();
-    for (size_t i = 0; i < masterSlave.getConnectedCount(); i++) {
-        Connection* connection = masterSlave.getConnectionByIndex(i);
-        if(!connection) continue;
-        SlaveLaser* slaveLaser = getLaserByAddress(connection->address);
-        int millimeters = -1;
-        uint8_t stationType = STATION_TRIGGER_TYPE_NONE;
-        if(slaveLaser) {
-            millimeters = slaveLaser->millimeters;
-            stationType = slaveLaser->stationType;
+    if(isDisplaySelect->getValue()) { // master
+        if(millis() - lastTimeSync > 5000) {
+            sendTimeSync();
+            lastTimeSync = millis();
         }
-        guiSetConnection(connection->address, millimeters, connection->lq, stationType);
+    } else { // slave
+        if(timeSynced && slaveTriggers.getSize() > 0 && millis() > nextTriggerSend) {
+            Serial.printf("sceduled triggers: %i\n", slaveTriggers.getSize());
+            Trigger& first = slaveTriggers.getFirst();
+            if(first.timeMs < 0) {
+                Serial.println("removing negative trigger");
+                slaveTriggers.removeIndex(0);
+                return;
+            }
+            sendTrigger(first);
+            timeMs_t triggerTimeout = random(3, 6) * (radio.getTimeOnAir(sizeof(Trigger)) / 1000 + 10);
+            nextTriggerSend = millis() + triggerTimeout;
+            Serial.printf("next trigger timeout: %ims\n", triggerTimeout);
+        }
+        if(masterConnected && millis() - lastTimeSyncMs > 11000) {
+            masterConnected = false;
+            Serial.println("Master disconnected");
+            playSoundLostConnection();
+        }
+        // static timeMs_t lastTestTrigger = 0;
+        // if(millis() > lastTestTrigger + 1000) {
+        //     slaveTrigger(millis(), STATION_TRIGGER_TYPE_START_FINISH);
+        //     lastTestTrigger = millis();
+        // }
     }
 }

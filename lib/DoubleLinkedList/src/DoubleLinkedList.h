@@ -10,7 +10,7 @@ struct Node {
 
 template <typename T>
 class DoubleLinkedList {
-private:
+protected:
     Node<T>* head;
     Node<T>* tail;
     size_t size;
