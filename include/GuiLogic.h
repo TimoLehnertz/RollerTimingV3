@@ -60,6 +60,7 @@ void isDisplayChanged() {
   displayBrightnessInput->setHidden(!isDisplaySelect->getValue());
   displayTimeInput->setHidden(!isDisplaySelect->getValue());
   fontSizeSelect->setHidden(!isDisplaySelect->getValue());
+  lapDisplayTypeSelect->setHidden(!isDisplaySelect->getValue());
   // only on lasers
   stationTypeSelect->setHidden(isDisplaySelect->getValue());
   minDelayInput->setHidden(isDisplaySelect->getValue());
@@ -159,6 +160,8 @@ void msOverlay(ScreenDisplay *display, DisplayUiState* state) {
     display->setTextAlignment(TEXT_ALIGN_RIGHT);
     display->drawString(128, 0, String(stationTypeSelect->getSelectedShort()));
   }
+
+  display->drawString(0, 0, String(vBat));
 }
 
 void drawFrameWiFi(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
@@ -455,6 +458,11 @@ void beginLCDDisplay() {
   stationTypeSelect->addOption("checkpoint", "Checkpoint"); // STATION_TRIGGER_TYPE_CHECKPOINT 2
   stationTypeSelect->addOption("Only finish", "Finish"); // STATION_TRIGGER_TYPE_FINISH 3
   stationTypeChanged();
+
+  lapDisplayTypeSelect = new Select("Lap Display");
+  lapDisplayTypeSelect->addOption("Lap time", "Time");
+  lapDisplayTypeSelect->addOption("Avg. lap speed", "Speed");
+
   laserValue = new NumberField("Analog laser", "", 1, 0, UINT16_MAX, 0);
   isDisplaySelect = new Select("Station type", isDisplayChanged);
   isDisplaySelect->addOption("Laser/Reflector", "Laser");
@@ -527,6 +535,7 @@ void beginLCDDisplay() {
   setupMenu->addItem(displayTimeInput);
   setupMenu->addItem(minDelayInput);
   setupMenu->addItem(displayBrightnessInput);
+  setupMenu->addItem(lapDisplayTypeSelect);
   setupMenu->addItem(fontSizeSelect);
 
     startMenu->addItem(new TextItem("Start gun"));
@@ -637,6 +646,16 @@ void ledDisplayTime(timeMs_t time, bool oneDigit) {
   }
 }
 
+void ledDisplaySpeed(float speed) {
+  char speedStr[100];
+  sprintf(speedStr, "%.1fkph", speed);
+  if(fontSizeSelect->getValue() == 0) {// large
+    matrix.print(speedStr, 6, 0, 0xFFFFFF, FONT_SETTINGS_DEFAULT);
+  } else { // small
+    matrix.print(speedStr, 12, 0, 0xFFFFFF, FONT_SIZE_SMALL + 1);
+  }
+}
+
 bool isLaserTimeout() {
   return millis() < lastTriggerMs + minDelayInput->getValue() * 1000 && lastTriggerMs != 0;
 }
@@ -650,24 +669,41 @@ void handleLEDS() {
   if(isDisplaySelect->getValue()) {
     if(millis() < 4000) { // intro
       matrix.print("GO SKATE!", 1, 1, CRGB::White, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
-    } else { // display time
-      if(session.getTriggerCount() == 0) {
-        ledDisplayTime(0, true);
-      } else {
-        if((session.isLapStarted() || session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000) && session.getTimeSinceLastSplit() < displayTimeInput->getValue() * 1000 / 2) {
-          ledDisplayTime(session.getLastSplitTime(), false);
-          // Serial.println("split time");
-        } else if(session.getLastLapMs() != INT32_MAX && (session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000 || !session.isLapStarted())) {
-          ledDisplayTime(session.getLastLapMs(), false);
-          // Serial.println("lap time");
+    } else { // display lap
+      if(lapDisplayTypeSelect->getValue() == 0) { // lap time
+        if(session.getTriggerCount() == 0) {
+          ledDisplayTime(0, true);
         } else {
-          timeMs_t time = session.getTimeSinceLastStart();
-          // Serial.println("time since last start");
-          if(time == INT32_MAX) time = 0;
-          // time = time / 100 * 100; // getting last 2 digits to 0
-          ledDisplayTime(time, true);
+          if((session.isLapStarted() || session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000) && session.getTimeSinceLastSplit() < displayTimeInput->getValue() * 1000 / 2) {
+            ledDisplayTime(session.getLastSplitTime(), false);
+          } else if(session.getLastLapMs() != INT32_MAX && (session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000 || !session.isLapStarted())) {
+            ledDisplayTime(session.getLastLapMs(), false);
+          } else {
+            timeMs_t time = session.getTimeSinceLastStart();
+            if(time == INT32_MAX) time = 0;
+            // time = time / 100 * 100; // getting last 2 digits to 0
+            ledDisplayTime(time, true);
+          }
+        }
+      } else { // lap speed
+        if(session.getTriggerCount() == 0) {
+          ledDisplayTime(0, true);
+        } else {
+          if((session.isLapStarted() || session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000) && session.getTimeSinceLastSplit() < displayTimeInput->getValue() * 1000 / 2) {
+            ledDisplayTime(session.getLastSplitTime(), false);
+          } else if(session.getLastLapMs() != INT32_MAX && (session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000 || !session.isLapStarted())) {
+            const timeMs_t lastLapTime = session.getLastLapMs();
+            if(lastLapTime != 0) {
+              const float speed = (session.getLastLapDistance() / 1000000.0) / (lastLapTime / 1000.0 / 60 / 60); // km / h
+              Serial.printf("dist: %fkm, time: %fh, speed: %fkph\n", session.getLastLapDistance() / 1000000.0, (lastLapTime / 1000.0 / 60 / 60), speed);
+              ledDisplaySpeed(speed);
+            }
+          } else {
+            ledDisplayTime(0, true);
+          }
         }
       }
+      // Lap count
       char lapsStr[3];
       size_t laps = session.getLapsCount();
       if(fontSizeSelect->getValue() == 0) { // large

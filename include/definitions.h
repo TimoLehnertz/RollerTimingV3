@@ -4,6 +4,9 @@
  * All IO pin definitions
  */
 
+// battery
+#define PIN_BAT
+
 // Lora module
 #define LoRa_MOSI 10
 #define LoRa_MISO 11
@@ -26,8 +29,11 @@
 #define PIN_ROTARY_DT 19  //  Blue
 #define PIN_ROTARY_CLK 20 //  Yellow
 #define PIN_ROTARY_SW 26  //  Green
-#define PIN_ROTARY_GND 34 //  Black
+#define PIN_ROTARY_GND 34 //  Black / white
+#define PIN_ROTARY_3V3 36 //  red / yellow
 // 3.3V to +pin           Red
+
+#define PIN_GND_1 46 //  Black
 
 /**
  * Voltage divider for battery measurements

@@ -98,6 +98,7 @@ TimeInput* targetTimeInput;
 NumberField* targetMetersInput;
 NumberField* targetMetersPerLapInput;
 Select* stationTypeSelect;
+Select* lapDisplayTypeSelect;
 CheckBox* wifiEnabledCB;
 CheckBox* cloudUploadEnabled;
 Select* isDisplaySelect;

@@ -270,6 +270,22 @@ public:
     return INT32_MAX;
   }
 
+  timeMs_t getLastLapDistance() {
+    if(getSize() == 0) return 0;
+    Node<Trigger>* current = tail;
+    Node<Trigger>* lastFinish = nullptr;
+    while(current) {
+      if(lastFinish && (current->data.triggerType == STATION_TRIGGER_TYPE_START || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH)) {
+        return lastFinish->data.millimeters;
+      }
+      if(current->data.triggerType == STATION_TRIGGER_TYPE_FINISH || current->data.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
+        lastFinish = current;
+      }
+      current = current->prev;
+    }
+    return 0;
+  }
+
   String getFileName() {
     return fileName;
   }

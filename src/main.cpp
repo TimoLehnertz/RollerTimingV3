@@ -21,6 +21,7 @@
 #include <WiFiLogic.h>
 #include <Sound.h>
 #include <DoubleLinkedList.h>
+#include <driver/adc.h>
 
 void handleBattery() {
   float voltageDividerMeasured = analogRead(PIN_VBAT) / 4095.0 * 3.3;
@@ -62,9 +63,13 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(PIN_LASER), trigger, FALLING);
   pinMode(PIN_BUZZER_GND, OUTPUT);
   digitalWrite(PIN_BUZZER_GND, LOW);
+  pinMode(PIN_GND_1, OUTPUT);
+  digitalWrite(PIN_GND_1, LOW);
   // complex without dependencies
   spiffsLogic.begin();
   
+  pinMode(PIN_ROTARY_3V3, OUTPUT);
+  digitalWrite(PIN_ROTARY_3V3, HIGH);
   Rotary.begin();
   beginLEDDisplay();
   beginRadio();
@@ -74,6 +79,8 @@ void setup() {
   beginMasterSlaveLogic(); // depends on beginLCDDisplay
   // trigge changes
   isDisplayChanged();
+
+  pinMode(1, INPUT);
   Serial.println("Setup complete");
 }
 
@@ -115,4 +122,15 @@ void loop() {
     lastHzMeasuredMs = millis();
     loops = 0;
   }
+
+  // adc1_config_width(ADC_WIDTH_BIT_12);
+  // adc1_config_channel_atten(ADC1_CHANNEL_0,ADC_ATTEN_DB_0);
+  // int val = adc1_get_raw(ADC1_CHANNEL_0);
+
+
+  // float vbat = 100.0 / (100.0+390.0) * analogRead(1);
+  // // float vbat = 100.0 / (100.0+390.0) * val;
+  // Serial.printf("vBat: %f, val: %i\n", vbat, analogRead(1));
+  // vBat = vbat;
+  // float vbat = 100 / (100+390) * VADC_IN1;
 }
