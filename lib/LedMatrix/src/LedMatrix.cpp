@@ -326,3 +326,46 @@ void LedMatrix::printTimeSmall(int x, int y, int32_t msSigned, bool oneMsDigit) 
         }
     }
 }
+
+void LedMatrix::printSpeedBig(int x, int y, float speed) {
+    char frontStr[10];
+    sprintf(frontStr, "%i", int(speed));
+    x = print(frontStr, x, y, CRGB(0x00FF00), FONT_SIZE_BIG + 1);
+    x--;
+    dot(x, y + 6, CRGB::Red); // was 0x666666
+    dot(x, y + 7, CRGB::Red);
+    x++;
+    dot(x, y + 6, CRGB::Red);
+    dot(x, y + 7, CRGB::Red);
+    x++;
+
+    char backStr[5] = "aaaa";
+    int backNums = int(speed * 100.0) % 100;
+    if(backNums == 0) {
+        sprintf(backStr, "00");
+    } else if(backNums < 10) {
+        sprintf(backStr, "0%i", backNums);
+    } else {
+        sprintf(backStr, "%i", backNums);
+    }
+    x = print(backStr, x, y, CRGB(0xFF33FF), FONT_SIZE_BIG + 1);
+}
+
+void LedMatrix::printSpeedSmall(int x, int y, float speed) {
+    char frontStr[10];
+    sprintf(frontStr, "%i", int(speed));
+    x = print(frontStr, x, y, CRGB(0x00FF00), FONT_SIZE_SMALL + 1);
+    dot(x - 1, y + 1, CRGB::Red);
+    dot(x - 1, y + 3, CRGB::Red);
+
+    char backStr[5] = "aaaa";
+    int backNums = int(speed * 100.0) % 100;
+    if(backNums == 0) {
+        sprintf(backStr, "00");
+    } else if(backNums < 10) {
+        sprintf(backStr, "0%i", backNums);
+    } else {
+        sprintf(backStr, "%i", backNums);
+    }
+    x = print(backStr, x, y, CRGB(0xFF33FF), FONT_SIZE_SMALL + 1);
+}

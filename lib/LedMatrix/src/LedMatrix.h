@@ -48,6 +48,8 @@ public:
     void dot(int x, int y, CRGB color);
     void printTimeBig(int x, int y, int32_t ms, bool oneMsDigit = false);
     void printTimeSmall(int x, int y, int32_t ms, bool oneMsDigit = false);
+    void printSpeedSmall(int x, int y, float speed);
+    void printSpeedBig(int x, int y, float speed);
 
     static int textWidth(const char* str, uint8_t settings = FONT_SETTINGS_DEFAULT);
     static int boundsFromChar(char digit, uint8_t settings);

@@ -409,10 +409,10 @@ void trainingsModeChanged() {
 }
 
 void stationTypeChanged() {
-  if(stationTypeSelect->getValue() == STATION_TRIGGER_TYPE_CHECKPOINT || stationTypeSelect->getValue() == STATION_TRIGGER_TYPE_FINISH) {
-    distFromStartInput->setHidden(false);
-  } else {
+  if(stationTypeSelect->getValue() == STATION_TRIGGER_TYPE_START) {
     distFromStartInput->setHidden(true);
+  } else {
+    distFromStartInput->setHidden(false);
   }
 }
 
@@ -647,12 +647,10 @@ void ledDisplayTime(timeMs_t time, bool oneDigit) {
 }
 
 void ledDisplaySpeed(float speed) {
-  char speedStr[100];
-  sprintf(speedStr, "%.1fkph", speed);
   if(fontSizeSelect->getValue() == 0) {// large
-    matrix.print(speedStr, 6, 0, 0xFFFFFF, FONT_SETTINGS_DEFAULT);
+    matrix.printSpeedBig(6, 0, speed);
   } else { // small
-    matrix.print(speedStr, 12, 0, 0xFFFFFF, FONT_SIZE_SMALL + 1);
+    matrix.printSpeedSmall(10, 2, speed);
   }
 }
 

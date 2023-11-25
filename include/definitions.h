@@ -48,6 +48,7 @@
 
 // LEDs
 #define PIN_LED_WHITE 35 // white led ledbuiltin
+// #define PIN_WS2812b 46
 #define PIN_WS2812b 47
 
 /**
