@@ -10,6 +10,7 @@ void RotaryChanged() {
 
 void handleRotary() {
   static bool lastBtn = false;
+  static timeMs_t lastBtnChange = 0;
   while(LastCount < Counter) {
     LastCount++;
     uiManager.triggerInputEvent(INPUT_EVENT_SCROLL_DOWN);
@@ -19,12 +20,13 @@ void handleRotary() {
     uiManager.triggerInputEvent(INPUT_EVENT_SCROLL_UP);
   }
   bool rotaryPressed = Rotary.isButtonDown();
-  if(lastBtn != rotaryPressed) {
-  if(rotaryPressed) {
-      uiManager.triggerInputEvent(INPUT_EVENT_MOUSE_DOWN);
-  } else {
-      uiManager.triggerInputEvent(INPUT_EVENT_MOUSE_UP);
-  }
-  lastBtn = rotaryPressed;
+  if(lastBtn != rotaryPressed && millis() - lastBtnChange > 200) { // 200ms cooldown to prevent flickering to make it into an event
+    if(rotaryPressed) {
+        uiManager.triggerInputEvent(INPUT_EVENT_MOUSE_DOWN);
+    } else {
+        uiManager.triggerInputEvent(INPUT_EVENT_MOUSE_UP);
+    }
+    lastBtn = rotaryPressed;
+    lastBtnChange = millis();
   }
 }

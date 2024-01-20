@@ -33,9 +33,6 @@ double randomDouble(double minRand, double maxRand) {
 }
 
 void triggerStartGun() {
-    for (size_t i = 0; i < 10; i++) {
-        Serial.println(randomDouble(0, 1));
-    }
     if(startgunStarted) return;
     startgunPhase = 1;
     startgunInPositionMs = millis() + inPositionDelay->getValue() * 1000;
@@ -43,10 +40,10 @@ void triggerStartGun() {
     startgunGoMs = startgunSetMs + goMinDelay->getValue() * 1000 + (goMaxDelay->getValue() - goMinDelay->getValue()) * 1000.0 * randomDouble(0, 1);
     // startgunStarted = true;
     // playSoundStartgunIdle();
-    uiManager.popup("Go to the start!");
-    Serial.println(startgunInPositionMs);
-    Serial.println(startgunSetMs);
-    Serial.println(startgunGoMs);
+    // uiManager.popup("Go to the start!");
+    // Serial.println(startgunInPositionMs);
+    // Serial.println(startgunSetMs);
+    // Serial.println(startgunGoMs);
 }
 
 void handleStartgun() {
@@ -79,9 +76,12 @@ void handleStartgun() {
                 playSoundStartgunGo();
                 startgunPhase = 0;
                 startgunStarted = false;
-                if(isDisplaySelect->getValue()) {
-                    masterTrigger(Trigger{ timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_START }); // 0 millimeters
+                if(isDisplaySelect->getValue()) { // is master
+                    Trigger trigger = Trigger{ timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_START };
+                    masterTrigger(trigger); // 0 millimeters
+                    Serial.printf("Master start gun triggered at %ims\n", trigger.timeMs);
                 } else {
+                    Serial.println("Slave start gun triggered");
                     slaveTrigger(millis(), STATION_TRIGGER_TYPE_START, 0);
                 }
             }

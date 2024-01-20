@@ -335,20 +335,6 @@ GUIProcessedEvent UIManager::processEvent(GUIInputEvent event) {
 
 void UIManager::handleProcessedEvent(GUIProcessedEvent event) {
     if(event == PROCESSED_EVENT_NONE) return;
-    switch(event) {
-        case PROCESSED_EVENT_ENTER:
-            beepOK();
-            break;
-        case PROCESSED_EVENT_CANCEL:
-            beepCancel();
-            break;
-        case PROCESSED_EVENT_SCROLL_UP:
-            beepBackwards();
-            break;
-        case PROCESSED_EVENT_SCROLL_DOWN:
-            beepForewards();
-            break;
-    }
     if(message != nullptr) {
         message = nullptr;
         return;
@@ -381,6 +367,21 @@ void UIManager::handleProcessedEvent(GUIProcessedEvent event) {
                 activeSection = displayUI->getNextFrameNumber();
                 break;
         }
+    }
+    // Beep
+    switch(event) {
+        case PROCESSED_EVENT_ENTER:
+            beepOK();
+            break;
+        case PROCESSED_EVENT_CANCEL:
+            beepCancel();
+            break;
+        case PROCESSED_EVENT_SCROLL_UP:
+            beepBackwards();
+            break;
+        case PROCESSED_EVENT_SCROLL_DOWN:
+            beepForewards();
+            break;
     }
 }
 

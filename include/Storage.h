@@ -13,12 +13,14 @@
 #include <Preferences.h>
 #include <Global.h>
 #include <GuiLogic.h>
+#include <WiFiLogic.h>
 
-#define STORAGE_CHECK 1234
+#define STORAGE_CHECK 201 // version + garbaage
 
 Preferences preferences;
 
 void isDisplayChanged();
+// void wifiEnabledChanged();
 
 void writePreferences() {
   Serial.println("Writing to preferences");
@@ -34,6 +36,11 @@ void writePreferences() {
   preferences.putString("wifiSSID", wifiSSID);
   preferences.putString("wifiPassword", wifiPassword);
   preferences.putString("username", username);
+  // preferences.putBool("wifiOn", wifiEnabledCB->isChecked());
+  if(isDisplaySelect->getValue()) { // is display
+    preferences.putString("APSsid", APSsid);
+    preferences.putString("APPassword", APPassword);
+  }
 }
 
 void readPreferences() {
@@ -50,6 +57,15 @@ void readPreferences() {
   wifiSSID = preferences.getString("wifiSSID");
   wifiPassword = preferences.getString("wifiPassword");
   username = preferences.getString("username");
+  // if(isDisplaySelect->getValue()) { // only activate wifi if this is a display
+  //   wifiEnabledCB->setChecked(preferences.getBool("wifiOn"), false);
+  //   wifiEnabledChanged();
+  // }
+  if(isDisplaySelect->getValue()) { // is display
+    APSsid = preferences.getString("APSsid");
+    APPassword = preferences.getString("APPassword");
+  } // otherwise ssid and password will be set by defaults
+  wiFiCredentialsChanged();
 }
 
 /**
@@ -67,6 +83,7 @@ void resetAllSettings() {
   wifiSSID = "";
   wifiPassword = "";
   username = "";
+  // wifiEnabledCB->setChecked(true);
   // determine if this is a display or laser by checking if PIN_LASER is floating
   // u8_t floatingCount = 0;
   // for (size_t i = 0; i < 100; i++) {
@@ -79,8 +96,7 @@ void resetAllSettings() {
   // }
   // Serial.printf("floatingCount: %i\n", floatingCount);
   // bool displayStation = floatingCount > 10; // is floating
-  bool displayStation = true; // likely more often updated
-  isDisplaySelect->setValue(displayStation);
+  isDisplaySelect->setValue(false); // likely more often updated
   isDisplayChanged();
 }
 

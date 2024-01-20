@@ -141,6 +141,10 @@ public:
         this->textAlignment = textAlignment;
     }
 
+    void setText(const char* text) {
+        this->text = text;
+    }
+
     void renderComponent(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) override {
         display->setTextAlignment(textAlignment);
         display->setFont(ArialMT_Plain_10);
@@ -281,8 +285,12 @@ public:
         return checked;
     }
 
-    void setChecked(bool checked) {
+    void setChecked(bool checked, bool silent = true) {
+        bool checkedBefore = this->checked;
         this->checked = checked;
+        if(!silent && checkedBefore != checked) {
+            change();
+        }
     }
 
     void removeFocus() {

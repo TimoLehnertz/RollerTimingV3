@@ -78,6 +78,7 @@ ICACHE_RAM_ATTR void setFlag(void) {
 
 void handleRadioReceive() {
   if(receivedFlag) {
+    Serial.println("Received");
     receivedFlag = false;
     uint8_t byteArr[255];
     int error = radio.readData(byteArr, 255);
@@ -104,10 +105,11 @@ void handleRadioReceive() {
 void handleRadioSend() {
   if(timeSyncRequested && millis() - lastSend > sendTimeout) {
     uint32_t time = millis();
-    radio.startTransmit((uint8_t*) &time, sizeof(uint32_t));
+    int16_t statusCode = radio.startTransmit((uint8_t*) &time, sizeof(uint32_t));
     timeSyncRequested = false;
     receiveTimeout = millis() + radio.getTimeOnAir(sizeof(uint32_t)) / 1000 + 30;
     lastSend = millis();
+    Serial.printf("Sended time sync. status code: %i\n", statusCode);
     return;
   }
   if(sceduledSends.getSize() > 0 && millis() - lastSend > sendTimeout) {

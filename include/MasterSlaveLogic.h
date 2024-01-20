@@ -16,6 +16,8 @@
 #include <radio.h>
 #include <DoubleLinkedList.h>
 
+#define MASTER_TIMEOUT_MS 11000
+
 void guiRemoveConnection(uint8_t address);
 void guiSetConnection(uint8_t address, int millimeters, uint8_t lq, uint8_t stationType);
 
@@ -71,7 +73,8 @@ void slaveTrigger(timeMs_t atMs, uint8_t triggerType, uint16_t millimeters) {
 }
 
 void radioReceived(const uint8_t* byteArr, size_t size) {
-    if(isDisplaySelect->getValue()) {
+    Serial.println("radioReceived");
+    if(isDisplaySelect->getValue()) { // master
         if(size == sizeof(Trigger)) {
             if(lastTimeSync == 0) {
                 return; // cant be synced yet
@@ -79,7 +82,7 @@ void radioReceived(const uint8_t* byteArr, size_t size) {
             Trigger trigger = *((Trigger*) byteArr);
             timeMs_t timeVariance = abs(trigger.timeMs - timeMs_t(millis()));
             if(timeVariance < 15000) {
-                if(!spiffsLogic.triggerExists(trigger)) {
+                if(!spiffsLogic.triggerInCache(trigger)) {
                     masterTrigger(trigger);
                     Serial.printf("Received trigger at %ims (time of receive: %ims)\n", trigger.timeMs, millis());
                 } else {
@@ -98,7 +101,6 @@ void radioReceived(const uint8_t* byteArr, size_t size) {
             if(slaveTriggers.getSize() > 0 && slaveTriggers.getFirst() == trigger) {
                 Serial.println("Master got my trigger");
                 slaveTriggers.removeIndex(0);
-                masterConnected = true;
             }
         } else if(size == sizeof(uint32_t)) { // time sync
             if(slaveTriggers.getSize() > 0 && timeSynced) {
@@ -123,6 +125,7 @@ void radioReceived(const uint8_t* byteArr, size_t size) {
                 slaveTrigger.timeMs += timeSyncOffset;
             }
             timeSynced = true;
+
             lastTimeSyncMs = millis();
             if(!masterConnected) {
                 playSoundNewConnection();
@@ -152,15 +155,10 @@ void handleMasterSlaveLogic() {
             nextTriggerSend = millis() + triggerTimeout;
             Serial.printf("next trigger timeout: %ims\n", triggerTimeout);
         }
-        if(masterConnected && millis() - lastTimeSyncMs > 11000) {
+        if(masterConnected && long(millis()) - long(lastTimeSyncMs) > MASTER_TIMEOUT_MS) {
             masterConnected = false;
             Serial.println("Master disconnected");
             playSoundLostConnection();
         }
-        // static timeMs_t lastTestTrigger = 0;
-        // if(millis() > lastTestTrigger + 1000) {
-        //     slaveTrigger(millis(), STATION_TRIGGER_TYPE_START_FINISH);
-        //     lastTestTrigger = millis();
-        // }
     }
 }

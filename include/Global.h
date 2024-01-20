@@ -99,21 +99,23 @@ NumberField* targetMetersInput;
 NumberField* targetMetersPerLapInput;
 Select* stationTypeSelect;
 Select* lapDisplayTypeSelect;
-CheckBox* wifiEnabledCB;
 CheckBox* cloudUploadEnabled;
 Select* isDisplaySelect;
 Select* fontSizeSelect;
 
+CheckBox* wifiEnabledCB;
+
 Button* startBtn;
 Button* lapBtn;
 Button* stopBtn;
+Button* startFinishBtn;
 
 TextItem* wifiSSIDText;
 TextItem* wifiPasswdText;
 TextItem* wifiIPText;
-
-char wifiIPStr[30];
-
+TextItem* wifiHelpText1;
+TextItem* wifiHelpText2;
+TextItem* wifiHelpText3;
 
 // Debug items
 MenuItem* debugMenuItems[5];
@@ -127,13 +129,12 @@ NumberField* heapSizeText;
 NumberField* laserValue;
 
 
-
 Menu* connectionsMenuMaster;
-Menu* viewerMenu;
+// Menu* viewerMenu;
 Menu* targetTimeMenu;
 SubMenu* targetTimeSubMenu;
 
-FrameSection* frameSections = new FrameSection[4];
+FrameSection* frameSections = new FrameSection[3];
 
 volatile uint32_t triggerCount = 0;
 volatile timeMs_t lastTriggerMs = 0;
@@ -151,9 +152,9 @@ bool isTriggered() {
   return !digitalRead(PIN_LASER);
 }
 
-void updateViewer(); // found in GuiLogic
+// void updateViewer(); // found in GuiLogic
 
 void masterTrigger(Trigger trigger) {
   spiffsLogic.addTrigger(trigger);
-  updateViewer();
+  // updateViewer();
 }

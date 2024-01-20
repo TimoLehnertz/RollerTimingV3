@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/logo.png">
     <title>Roller timing</title>
     <style>
         * {
@@ -56,6 +57,10 @@
             font-size: 15px;
             border-radius: 8px;
             text-decoration: none;
+        }
+
+        .download-btn.red {
+            background-color: #942147;
         }
 
         .download-btn:hover {
@@ -204,7 +209,7 @@
     <div class="container">
         <div class="content">
             <div class="error" id="error-message"></div>
-            <h1>Roller timing</h1>
+            <h1>Roller timing 2.0</h1>
             <hr>
             <br>
             <div class="flex">
@@ -263,7 +268,7 @@
                 </div>
                 <br>
                 <div class="flex space-arround">
-                    <label for="displayTime">Display time:</label>
+                    <label for="displayTime">Lap display time:</label>
                     <div>
                         <input type="number" id="displayTime" step="1" min="1" max="9999" value="7" onchange="updateSettings()">
                         seconds
@@ -277,6 +282,27 @@
                         <option value="1">Small</option>
                     </select>
                 </div>
+                <hr>
+                <form method="GET" action="/updateCredentials">
+                    <h3>Wifi settings</h3>
+                    <div class="flex space-arround">
+                        <label for="APSsid">WiFi Name of this device</label>
+                        <input id="APSsid" name="APSsid" type="text" maxlength="32" minlength="2" required>
+                    </div>
+                    <br>
+                    <div class="flex space-arround">
+                        <label for="APPassword">Password for connecting</label>
+                        <input id="APPassword" name="APPassword" type="text" maxlength="32" minlength="8" required>
+                    </div>
+                    <p>After changing the name or password you will need to reconnect using the new credentials.</p>
+                    <p>The name and password will always be displayed on the devices display on the WiFi page.</p>
+                    <br>
+                    <button class="download-btn" type="submit">Update name and password</button>
+                </form>
+                <br>
+                <p>
+                    <a href="/update" class="download-btn">Update firmware</a>
+                </p>
             </div>
             <div class="page" id="getStartedPage">
                 <h3>Get started guide</h3>
@@ -284,13 +310,21 @@
                 <ul>
                     <li>The laser stations without antenna and display last for more than 24h of use.</li>
                     <li>The laser stations with antenna and display last for roughly 10 hours.</li>
-                    <li>The battery life of the display station depends on the display brightness. If the brightness is set to 100% the battery will be empty after 1h30. 5% brightness will give closer to 5h of operation.</li>
+                    <li>The battery life of the display station depends on the display brightness. If the brightness is set to 100 percent the battery will be empty after 1h30. 5 percent brightness will give closer to 5h of operation.</li>
                 </ul>
                 <p style="text-align: left">Lorem ipsum dolor sit amet consectetur adipisicing elit. Consequuntur, totam eos. Laboriosam eius, dolorem deleniti molestiae sed omnis asperiores iure nulla commodi neque eaque cumque repellendus molestias quidem quos! Mollitia.</p>
             </div>
             <div class="page" id="startGunPage">
                 <br>
                 <p>Simulate a real starting situation</p>
+                <br>
+                <p>Please note that Bluetooth speakers and headsets introduce a delay of about 200ms.</p>
+                <p>If you are using low latency Bluetooth leave this setting turned off</p>
+                <br>
+                <p>
+                    <input type="checkbox" id="compensate-bluetooth">
+                    <label for="compensate-bluetooth">Compensate Bluetooth delay</label>
+                </p>
                 <br>
                 <div class="flex row">
                     <button class="download-btn startGunBtn" onclick="startNow()">Start now</button>
@@ -323,9 +357,13 @@
                 <div id="free-space"></div>
             </div>
             <br>
+            <hr>
             <br>
             <p>
-                Roller timing by Timo Lehnertz
+                Roller timing<br>
+                Software version: <span style="color: #24240f">2.0</span><br>
+                Roller results - From skaters for skaters<br>
+                by Timo Lehnertz
             </p>
         </div>
     </div>
@@ -335,12 +373,15 @@
 
 let debug = false;
 
-let viewerFileName = null; // undefined = live viewer, else static viewer
+let viewerFileName = 'live'; // 'live' = live viewer, else static viewer
 let runningSessionName = null; // not known yet
 let viewerActive = false;
 
+let liveSession = [];
+let liveCallback = undefined;
+let liveStarted = false;
+
 function toggle(viewer) {
-    console.log("toggle: ", viewer);
     for (const element of document.getElementsByClassName('page')) {
         element.style.display = 'none';
     }
@@ -367,6 +408,31 @@ if(savedPage) {
 } else {
     toggle('getStarted');
 }
+
+//update
+const form = document.getElementById('upload-form');
+form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    var data = new FormData(form);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/update`, true);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            if (xhr.status === 200) {
+                alert("Success. Don't cut power until the device reboots. This site will soon disconnect");
+            } else {
+                alert("An error occurred while updating");
+            }
+        }
+    }
+    xhr.upload.addEventListener('progress', function(evt) {
+        if (evt.lengthComputable) {
+            const per = evt.loaded / evt.total;
+            document.getElementById('upload-progress').innerHTML = `progress: ${Math.round(per*100)}%`;
+        }
+    }, false);
+    xhr.send(data);
+});
 
 const startGunSpeed = localStorage.getItem("startGunSpeed");
 if(startGunSpeed) {
@@ -416,361 +482,6 @@ function updateSettings() {
     xhr.send();
 }
 
-// const session = [
-//     {"triggerType":0,
-//         "timeMs":170148,
-//         "millimeters":34463
-//     },{"triggerType":0,
-//         "timeMs":171048,
-//         "millimeters":34463
-//     },
-//     {"triggerType":1,
-//         "timeMs":171148,
-//         "millimeters":34463
-//     },
-//     {"triggerType":2,
-//         "timeMs":177390,
-//         "millimeters":34463
-//     },
-//     {"triggerType":3,
-//         "timeMs":205626,
-//         "millimeters":34463
-//     }
-// ]
-
-const session = [
-    {"triggerType":1,
-        "timeMs":32486,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":33604,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":35049,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":42056,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":42214,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":42503,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":42652,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":42822,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":43342,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":43549,
-        "millimeters":0
-    },
-    {"triggerType":2,
-        "timeMs":47214,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":98476,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":103486,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":104829,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":105622,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":105939,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":106133,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":106323,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":106718,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":108547,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":110906,
-        "millimeters":0
-    },
-    {"triggerType":2,
-        "timeMs":114166,
-        "millimeters":0
-    },
-    {"triggerType":2,
-        "timeMs":116138,
-        "millimeters":1
-    },
-    {"triggerType":2,
-        "timeMs":117047,
-        "millimeters":2
-    },
-    {"triggerType":2,
-        "timeMs":117838,
-        "millimeters":3
-    },
-    {"triggerType":2,
-        "timeMs":118586,
-        "millimeters":4
-    },
-    {"triggerType":2,
-        "timeMs":118960,
-        "millimeters":5
-    },
-    {"triggerType":2,
-        "timeMs":120534,
-        "millimeters":6
-    },
-    {"triggerType":2,
-        "timeMs":120712,
-        "millimeters":7
-    },
-    {"triggerType":2,
-        "timeMs":124235,
-        "millimeters":8
-    },
-    {"triggerType":3,
-        "timeMs":130481,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":146804,
-        "millimeters":0
-    },
-    {"triggerType":2,
-        "timeMs":150293,
-        "millimeters":0
-    },
-    {"triggerType":2,
-        "timeMs":152008,
-        "millimeters":1
-    },
-    {"triggerType":3,
-        "timeMs":157753,
-        "millimeters":0
-    },
-    {"triggerType":3,
-        "timeMs":159661,
-        "millimeters":0
-    },
-    {"triggerType":3,
-        "timeMs":161127,
-        "millimeters":0
-    },
-    {"triggerType":3,
-        "timeMs":161341,
-        "millimeters":0
-    },
-    {"triggerType":3,
-        "timeMs":170832,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":212161,
-        "millimeters":0
-    },
-    {"triggerType":2,
-        "timeMs":217124,
-        "millimeters":0
-    },
-    {"triggerType":3,
-        "timeMs":219699,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":235636,
-        "millimeters":0
-    },
-    {"triggerType":2,
-        "timeMs":238731,
-        "millimeters":0
-    },
-    {"triggerType":2,
-        "timeMs":250485,
-        "millimeters":1
-    },
-    {"triggerType":2,
-        "timeMs":253508,
-        "millimeters":2
-    },
-    {"triggerType":3,
-        "timeMs":258241,
-        "millimeters":0
-    },
-    {"triggerType":1,
-        "timeMs":280584,
-        "millimeters":0
-    },
-    {"triggerType":2,
-        "timeMs":285087,
-        "millimeters":0
-    },
-    {"triggerType":2,
-        "timeMs":285187,
-        "millimeters":1
-    },
-    {"triggerType":2,
-        "timeMs":293174,
-        "millimeters":2
-    },
-    {"triggerType":3,
-        "timeMs":297174,
-        "millimeters":0
-    }
-]
-
-// const session = [
-//     {
-//         "triggerType": 0,
-//         "timeMs": 29537,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 37964,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 40020,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 91049,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 94330,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 100117,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 109470,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 113778,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 148304,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 159314,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 160497,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 161278,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 235602,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 236715,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 249528,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 0,
-//         "timeMs": 259361,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 1,
-//         "timeMs": 302347,
-//         "millimeters": 0
-//     },
-//     {
-//         "triggerType": 2,
-//         "timeMs": 310333,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 3,
-//         "timeMs": 314337,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 3,
-//         "timeMs": 345905,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 1,
-//         "timeMs": 536984,
-//         "millimeters": 0
-//     },
-//     {
-//         "triggerType": 2,
-//         "timeMs": 543023,
-//         "millimeters": 10000
-//     },
-//     {
-//         "triggerType": 3,
-//         "timeMs": 544395,
-//         "millimeters": 10000
-//     },{
-//         "triggerType": 1,
-//         "timeMs": 536984,
-//         "millimeters": 0
-//     },
-// ];
-
 function isJsonString(str) {
     try {
         JSON.parse(str);
@@ -788,9 +499,12 @@ function logError(error) {
     }, 5000);
 }
 
+let savedSessions = [];
+
 function updateSaved(sessions) {
+    savedSessions = sessions;
     if(sessions.length > 0) {
-        runningSessionName = sessions[sessions.length - 1].fileName;
+        runningSessionName = sessions[0].fileName;
     }
     const savedDOM = document.getElementById("saved");
     savedDOM.innerHTML = "";
@@ -808,14 +522,19 @@ function updateSaved(sessions) {
                 viewText = "View live";
             }
         }
-        sessionElement.innerHTML = `#${parseInt(session.fileName)} (${session.triggerCount} laps)<button class="download-btn" onclick="download('${session.fileName}', true)">Download</button><button class="download-btn" onclick="viewSession('${session.fileName}', true)">${viewText}</button>`;
+        sessionElement.innerHTML = `#${parseInt(session.fileName)} (${session.triggerCount} line crossings)
+        <button class="download-btn" onclick="download('${session.fileName}', true)">Download</button>
+        <button class="download-btn" onclick="viewSession('${session.fileName}', true)">${viewText}</button>`;
+        if(session.fileName !== runningSessionName) {
+            sessionElement.innerHTML += `<button class="download-btn red" onclick="deleteSession('${session.fileName}')">Delete</button>`;
+        }
         savedDOM.append(sessionElement);
     }
 }
 
 function updateFreeSpace(bytesUsed, bytesTotal) {
     const freeSpaceDom = document.getElementById("free-space");
-    freeSpaceDom.innerHTML = `<hr>${Math.round(bytesUsed / 1000)}kb (${Math.round(bytesUsed / bytesTotal * 100)} %) of ${Math.round(bytesTotal / 1000 / 1000 * 10) / 10}mb occupied`;
+    freeSpaceDom.innerHTML = `<hr>${Math.round(bytesUsed / 1000)}kb (${Math.round(bytesUsed / bytesTotal * 100)} %) of ${Math.round(bytesTotal / 1000 / 1000 * 10) / 10}MB occupied`;
 }
 
 function loadSessions() {
@@ -828,7 +547,9 @@ function loadSessions() {
             if (xhr.status === 200) {
                 if(isJsonString(xhr.responseText)) {
                     const json = JSON.parse(xhr.responseText);
-                    console.log(json);
+                    json.sessions = json.sessions.sort(function(a,b){
+                        return parseInt(b.fileName) - parseInt(a.fileName);
+                    });
                     if(json.sessions !== undefined) {
                         updateSaved(json.sessions);
                         updateFreeSpace(json.bytesUsed, json.bytesTotal);
@@ -852,6 +573,12 @@ function loadSessions() {
                     }
                     if(json.wifiPassword) {
                         document.getElementById("wifiPassword").value = json.wifiPassword;
+                    }
+                    if(json.APSsid) {
+                        document.getElementById("APSsid").value = json.APSsid;
+                    }
+                    if(json.APPassword) {
+                        document.getElementById("APPassword").value = json.APPassword;
                     }
                 } else {
                     logError("Error:" + xhr.responseText);
@@ -879,10 +606,37 @@ function loadSessions() {
     xhr.send();
 }
 
-function fetchSession(fileName, limit, callback) {
-    let xhr = new XMLHttpRequest();
-    xhr.open('GET', `/session?name=${fileName}&limit=${limit}`, true);
+function fetchLive(callback) {
+    liveCallback = callback;
+    if(liveStarted) {
+        liveCallback(true, JSON.parse(JSON.stringify(liveSession)));
+        return;
+    }
+    let eventSource = new EventSource('/live');
+    eventSource.addEventListener('open', function(e) {
+    }, false);
+    eventSource.addEventListener('init', function(e) {
+        liveSession = JSON.parse(e.data);
+        liveCallback(true, JSON.parse(JSON.stringify(liveSession)));
+    }, false);
+    eventSource.addEventListener('update', function(e) {
+        const newTriggers = JSON.parse(e.data);
+        for (const trigger of newTriggers) {
+            liveSession.push(trigger);
+        }
+        liveCallback(true, JSON.parse(JSON.stringify(liveSession)));
+    }, false);
+    eventSource.addEventListener('error', function(e) {
+        if (e.target.readyState != EventSource.OPEN) {
+            console.log("Events Disconnected");
+        }
+    }, false);
+    liveStarted = true;
+}
 
+function fetchSession(fileName, page, callback) {
+    let xhr = new XMLHttpRequest();
+    xhr.open('GET', `/session?name=${fileName}&page=${page}`, true);
     // Set up a callback function to handle the response
     xhr.onreadystatechange = function () {
         if (xhr.readyState === XMLHttpRequest.DONE) {
@@ -908,10 +662,21 @@ function fetchSession(fileName, limit, callback) {
 }
 
 function download(file) {
-    fetchSession(file, 100000, (succsess, session) => {
-        if(succsess) {
-            downloadCSV(session, file);
-        }
+    let sessionTriggers = [];
+    session.triggers
+    session.maxPages;
+    function fetchPage(page, callback) {
+        fetchSession(file, page, (succsess, session) => {
+            if(succsess) {
+                sessionTriggers = sessionTriggers.concat(session.triggers);
+                fetchPage(page + 1, callback);
+            } else { // will fail if page was too big => done
+                callback();
+            }
+        });
+    }
+    fetchPage(0, () => {
+        downloadCSV(sessionTriggers, file);
     });
 }
 
@@ -940,45 +705,52 @@ class Lap {
 }
 
 function sessionToLaps(session) {
+    session = session.sort(function(a, b) {
+        return a.ms - b.ms;
+    });
     const laps = [];
     let splitLaps = [];
     let lapStarted = false;
-    let lapCount = 0;
     let lapStart = 0;
     let lastTrigger = 0;
     let lastMillimeters = -1;
     let currentCheckpoint = 0;
     let finishPending = false;
+    let lapCount = 0;
     for (const trigger of session) {
-        if(lapStarted && (trigger.triggerType === STATION_TRIGGER_TYPE_FINISH || trigger.triggerType === STATION_TRIGGER_TYPE_START_FINISH)) {
+        if(lapStarted && (trigger.type === STATION_TRIGGER_TYPE_FINISH || trigger.type === STATION_TRIGGER_TYPE_START_FINISH)) {
             if(splitLaps.length > 0) {
-                splitLaps.push(new SplitLap(trigger.millimeters, trigger.timeMs - lastTrigger, currentCheckpoint++, true));
+                splitLaps.push(new SplitLap(trigger.mm, trigger.ms - lastTrigger, currentCheckpoint++, true));
             }
-            laps.push(new Lap(lapCount++, trigger.timeMs - lapStart, splitLaps));
+            laps.push(new Lap(lapCount++, trigger.ms - lapStart, splitLaps));
             splitLaps = [];
             lapStarted = false;
             finishPending = false;
         }
-        if(trigger.triggerType == STATION_TRIGGER_TYPE_START || trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
-            lapStart = trigger.timeMs;
+        if(trigger.type == STATION_TRIGGER_TYPE_START || trigger.type == STATION_TRIGGER_TYPE_START_FINISH) {
+            lapStart = trigger.ms;
             lastMillimeters = -1;
             lapStarted = true;
             currentCheckpoint = 0;
         }
-        if(trigger.triggerType == STATION_TRIGGER_TYPE_START) {
+        if(trigger.type == STATION_TRIGGER_TYPE_START) {
             finishPending = true;
         }
-        if(lapStarted && trigger.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
-            if(trigger.millimeters <= lastMillimeters) continue;
-            splitLaps.push(new SplitLap(trigger.millimeters, trigger.timeMs - lastTrigger, currentCheckpoint++, false));
-            lastMillimeters = trigger.millimeters;
+        if(lapStarted && trigger.type == STATION_TRIGGER_TYPE_CHECKPOINT) {
+            if(trigger.mm <= lastMillimeters) continue;
+            splitLaps.push(new SplitLap(trigger.mm, trigger.ms - lastTrigger, currentCheckpoint++, false));
+            lastMillimeters = trigger.mm;
             finishPending = true;
         }
-        lastTrigger = trigger.timeMs;
+        lastTrigger = trigger.ms;
     }
     if(splitLaps.length > 0 || finishPending) {
-        const lap = new Lap(lapCount++, 0, splitLaps);
-        lap.done= false;
+        let latsLapIndex = 0;
+        if(laps.length > 0) {
+            latsLapIndex = laps[laps.length - 1].index + 1;
+        }
+        const lap = new Lap(latsLapIndex, 0, splitLaps);
+        lap.done = false;
         laps.push(lap);
     }
     return laps;
@@ -987,12 +759,11 @@ function sessionToLaps(session) {
 // downloadCSV(session, "1.rt");
 
 /**
- * [{millimeters:123,timeMs:-123,triggerType:2}]
+ * [{mm:123,ms:-123,triggerType:2}]
  */
 function downloadCSV(session, sessionName) {
     let csv = "Lap,Lap time(s),Split,Split distance(m),Split time(s)\n";
     const laps = sessionToLaps(session);
-    console.log(laps);
     for (const lap of laps.toReversed()) {
         if(lap.done) {
             csv += `${lap.index + 1},${lap.timeMs / 1000},,,\n`;
@@ -1003,7 +774,6 @@ function downloadCSV(session, sessionName) {
             csv += `${lap.index + 1},,${splitLap.splitIndex + 1},${splitLap.distance / 1000},${splitLap.splitTimeMs / 1000}\n`;
         }
     }
-    console.log(csv);
     // Creating a Blob for having a csv file format 
     // and passing the data with type
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -1021,7 +791,7 @@ function downloadCSV(session, sessionName) {
 }
 
 function startViewer() {
-    if(viewerFileName === null) { // live
+    if(viewerFileName === 'live') { // live
         viewerActive = true;
     } else {
         viewerActive = false;
@@ -1029,24 +799,19 @@ function startViewer() {
     fetchViewer();
 }
 
-function fetchViewer() {
-    let fetchFile = null;
-    if(viewerFileName !== null) { // static fiewer file
-        fetchFile = viewerFileName;
-    } else { // live viewer file
-        fetchFile = runningSessionName;
-    }
-    if(fetchFile !== null) { // file found
-        fetchSession(fetchFile, 50, (succsess, session) => {
-            if(succsess) {
-                displayLaps(sessionToLaps(session), fetchFile);
+function fetchViewer(page = 0) {
+    if(viewerFileName === 'live') {
+        fetchLive((succsess, session) => {
+            if(succsess && viewerFileName === 'live') { // check if live view is still shown
+                displayLaps(sessionToLaps(session), 'live');
             }
         });
-    }
-    if(viewerActive && viewerFileName === null) {
-        window.setTimeout(() => {
-            fetchViewer();
-        }, 1000);
+    } else {
+        fetchSession(viewerFileName, page, (succsess, session) => {
+            if(succsess) {
+                displayLaps(sessionToLaps(session.triggers), viewerFileName, page, session.maxPages);
+            }
+        });
     }
 }
 
@@ -1056,23 +821,49 @@ function endViewer() {
 
 function viewSession(fileName) {
     if(fileName === runningSessionName) {
-        viewerFileName = null;
+        viewerFileName = 'live';
     } else {
         viewerFileName = fileName;
     }
     toggle('viewer');
 }
 
+function deleteSession(fileName) {
+    if(!confirm(`Continuing will permanently delete ${fileName}`)) {
+        return;
+    }
+    let xhr = new XMLHttpRequest();
+    xhr.open('GET', `/deleteSession?name=${fileName}`, true);
+    xhr.onreadystatechange = function () {
+        if(xhr.readyState === XMLHttpRequest.DONE) {
+            if(xhr.status === 200) {
+                // locally delete session
+                for (const savedSession of savedSessions) {
+                    if(savedSession.fileName === fileName) {
+                        const index = savedSessions.indexOf(savedSession);
+                        savedSessions.splice(index, 1);
+                        break;
+                    }
+                }
+                updateSaved(savedSessions);
+            } else {
+                alert('An erro occoured while deleting the session');
+                console.log("Error: ", xhr.responseText);
+            }
+        }
+    };
+    xhr.send();
+}
+
 loadSessions();
 
-function displayLaps(laps, fileName) {
-    console.log("fileName:", fileName);
-    console.log("laps:", laps);
+function displayLaps(laps, fileName, page = undefined, numPages = undefined) {
     const viewer = document.getElementById("viewer");
-    viewer.innerHTML = `<br><p>Session #${parseInt(fileName)}</p><br>`;
-    if(fileName === runningSessionName) {
-        viewer.innerHTML += "<p>Live view</p>"
+    viewer.innerHTML = "";
+    if(fileName === 'live') {
+        viewer.innerHTML += `<p>Live view</p><br>`;
     } else {
+        viewer.innerHTML = `<br><p>Session #${parseInt(fileName)}</p><br>`;
         viewer.innerHTML += `<button class="download-btn" onclick="viewSession('${runningSessionName}')">View live</button>`;
     }
     viewer.innerHTML += "<br>";
@@ -1085,11 +876,21 @@ function displayLaps(laps, fileName) {
             viewer.innerHTML += `
             <div class="split-lap">
                 <span class="split-lap-index">#${splitLap.splitIndex + 1}</span>
-                <span class="split-lap-distance">${splitLap.isFinish ? "finish" : splitLap.distance / 1000 + "m"}</span>
+                <span class="split-lap-distance">${splitLap.isFinish ? "finish" : splitLap.distance / 1000 + " meters"}</span>
                 <span class="split-lap-time">${timeToStr(splitLap.splitTimeMs)}</span>
             </div>`;
         }
         viewer.innerHTML += "</div>";
+    }
+    if(page !== undefined && numPages !== undefined) {
+        viewer.innerHTML += `<hr>`;
+        viewer.innerHTML += `Page ${page + 1} of ${numPages} `
+        if(page > 0) {
+            viewer.innerHTML += `<button class="download-btn" style="margin-right: 1rem;" onclick="fetchViewer(${page - 1})"><</button>`
+        }
+        if(page <= numPages - 1) {
+            viewer.innerHTML += `<button class="download-btn" onclick="fetchViewer(${page + 1})">></button>`
+        }
     }
 }
 
@@ -1158,9 +959,9 @@ function startNow(switchPage = true) {
     toggleStartGunBtns(false);
     const speed = document.querySelector('input[name="startGunSpeed"]:checked').value;
     localStorage.setItem("startGunSpeed", speed);
-    console.log(speed);
     const setTimeMs = getRandomArbitrary(startGunTimimngs[speed].setMin, startGunTimimngs[speed].setMax);
     const goTimMs = getRandomArbitrary(startGunTimimngs[speed].goMin, startGunTimimngs[speed].goMax);
+    const delayCompensation = document.getElementById('compensate-bluetooth').checked ? -200 : 0;
     inPositionAudio.play();
     sendStart(setTimeMs + goTimMs, (succsess) => {
         if(succsess) {
@@ -1170,7 +971,7 @@ function startNow(switchPage = true) {
                     beepAudio.play();
                     toggleStartGunBtns(true);
                 }, goTimMs);
-            }, setTimeMs);
+            }, setTimeMs + delayCompensation);
         } else {
             logError("Start gun could not reach server. Please check WiFi and try again");
         }
@@ -1224,6 +1025,5 @@ function setupCloudUpload() {
     // Send the request
     xhr.send();
 }
-
 </script>
 </html>

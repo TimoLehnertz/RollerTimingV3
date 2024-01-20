@@ -227,6 +227,15 @@ public:
         }
     }
 
+    bool includes(const T& cmp) {
+        for (auto element : *this) {
+            if(element == cmp) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     size_t getSize() const {
         return size;
     }
@@ -262,11 +271,40 @@ public:
         }
     };
 
+    class ReverseIterator {
+    private:
+        Node<T>* current;
+
+    public:
+        ReverseIterator(Node<T>* node) : current(node) {}
+
+        T& operator*() const {
+            return current->data;
+        }
+
+        bool operator!=(const ReverseIterator& other) const {
+            return current != other.current;
+        }
+
+        void operator++() {
+            current = current->prev;
+        }
+    };
+
+
     Iterator begin() const {
         return Iterator(head);
     }
 
     Iterator end() const {
         return Iterator(nullptr);
+    }
+
+    ReverseIterator rbegin() const {
+        return ReverseIterator(tail);
+    }
+
+    ReverseIterator rend() const {
+        return ReverseIterator(nullptr);
     }
 };

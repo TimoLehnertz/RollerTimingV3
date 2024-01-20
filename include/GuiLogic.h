@@ -21,8 +21,8 @@
 #define POWER_SAVING_MODE_MEDIUM 1
 #define POWER_SAVING_MODE_HIGH 2
 
-#define MASTER_FRAMES 4
-#define SLAVE_FRAMES 2
+#define MASTER_FRAMES 3
+#define SLAVE_FRAMES 3
 
 // TextItem* connectionItems[MAX_CONNECTIONS];
 // char* connectionItemsTexts[MAX_CONNECTIONS];
@@ -55,23 +55,38 @@ void reboot() {
   ESP.restart();
 }
 
+void wiFiCredentialsChanged() {
+  static char* wifiSSIDStr = new char[40];
+  static char* wifiPasswdStr = new char[40];
+  sprintf(wifiSSIDStr, "SSID: %s", APSsid.c_str());
+  sprintf(wifiPasswdStr, "Password: %s", APPassword.c_str());
+  wifiSSIDText->setText(wifiSSIDStr);
+  wifiPasswdText->setText(wifiPasswdStr);
+}
+
 void isDisplayChanged() {
   // only on displays
   displayBrightnessInput->setHidden(!isDisplaySelect->getValue());
   displayTimeInput->setHidden(!isDisplaySelect->getValue());
   fontSizeSelect->setHidden(!isDisplaySelect->getValue());
   lapDisplayTypeSelect->setHidden(!isDisplaySelect->getValue());
+  cloudUploadEnabled->setHidden(!isDisplaySelect->getValue());
   // only on lasers
   stationTypeSelect->setHidden(isDisplaySelect->getValue());
   minDelayInput->setHidden(isDisplaySelect->getValue());
+  wifiEnabledCB->setHidden(isDisplaySelect->getValue());
   // master slave
-  if(isDisplaySelect->getValue()) {
+  if(isDisplaySelect->getValue()) { // now I am a display
     spiffsLogic.startNewSession();
     uiManager.begin(overlayCallbacks, overlaysCount, frameSections, MASTER_FRAMES);
     trainingsModeChanged();
-  } else {
+  } else { // now I am a station
     uiManager.begin(overlayCallbacks, overlaysCount, frameSections, SLAVE_FRAMES);
     targetTimeSubMenu->setHidden(true);
+    // reset SSID and password
+    APSsid = APSSID_STATION_DEFAULT;
+    APPassword = APPASSWORD_DEFAULT;
+    wiFiCredentialsChanged();
   }
   trainingsModeSelect->setHidden(!isDisplaySelect->getValue());
   writePreferences();
@@ -145,23 +160,27 @@ void msOverlay(ScreenDisplay *display, DisplayUiState* state) {
         sprintf(strConnection, "Connected");
       }
     } else {
-      if(slaveTriggers.getSize() > 0) {
-        sprintf(strConnection, "Not connected(%i qued)", slaveTriggers.getSize());
-      } else {
-        sprintf(strConnection, "Not connected");
-      }
+      sprintf(strConnection, "No connection");
     }
-  }
-
-  display->setFont(ArialMT_Plain_10);
-  display->setTextAlignment(TEXT_ALIGN_LEFT);
-  display->drawString(0, 0, String(strConnection));
-  if(isDisplaySelect->getValue() == 0) {
+    display->setFont(ArialMT_Plain_10);
+    display->setTextAlignment(TEXT_ALIGN_LEFT);
+    display->drawString(0, 0, String(strConnection));
+    // type of station
     display->setTextAlignment(TEXT_ALIGN_RIGHT);
     display->drawString(128, 0, String(stationTypeSelect->getSelectedShort()));
+  } else {
+    size_t lapsCount = spiffsLogic.getActiveTraining().getLapsCount();
+    size_t bytesUsed = spiffsLogic.getBytesTotal();
+    if(bytesUsed > 0) {
+      size_t memUsed = float(spiffsLogic.getBytesUsed()) / float(bytesUsed) * 100;
+      char memUsedStr[20];
+      memUsedStr[0] = 0;
+      sprintf(memUsedStr, "Free storage: %i%%", 100 - memUsed);
+      display->setFont(ArialMT_Plain_10);
+      display->setTextAlignment(TEXT_ALIGN_LEFT);
+      display->drawString(0, 0, String(memUsedStr));
+    }
   }
-
-  display->drawString(0, 0, String(vBat));
 }
 
 void drawFrameWiFi(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
@@ -234,7 +253,7 @@ void startGun15sBtnPressed() {
   triggerStartGun();
 }
 
-size_t stopWatchLap = 0;
+uint16_t stopWatchLap = 0;
 
 void startBtnPressed() {
   stopWatchLap = 0;
@@ -263,6 +282,15 @@ void lapBtnPressed() {
     slaveTrigger(millis(), STATION_TRIGGER_TYPE_CHECKPOINT, stopWatchLap);
   }
   stopWatchLap++;
+}
+
+void startFinishBtnPressed() {
+  Trigger trigger = Trigger { timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_START_FINISH };
+  if(isDisplaySelect->getValue()) { // master
+    masterTrigger(trigger);
+  } else {
+    slaveTrigger(millis(), STATION_TRIGGER_TYPE_START_FINISH, 0);
+  }
 }
 
 void timToStr(timeMs_t timeMs, char* str, bool oneMsDigit = false) {
@@ -304,104 +332,104 @@ size_t viewerMenuItemCount = 0;
 // Button* showOlderBtn = new Button("Show older", showOlder);
 // Button* showNewerBtn = new Button("Show older", showNewer);
 
-void addCheckpointToViewer(timeMs_t checkpointDurationMs, uint16_t millimeters, uint16_t currentCheckpoint, uint8_t triggerType) {
-    char* timeStr = new char[20];
-    if(triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
-      sprintf(timeStr, "# %i %im | ", currentCheckpoint + 1, int(millimeters / 1000));
-    } else {
-      sprintf(timeStr, "# %i | ", currentCheckpoint + 1);
-    }
-    viewerTimeStrings[viewerTimeStringsCount++] = timeStr;
-    timToStr(checkpointDurationMs, timeStr + strlen(timeStr));
-    TextItem* textItem = new TextItem(timeStr, true, TEXT_ALIGN_LEFT);
-    viewerMenuItems[viewerMenuItemCount++] = textItem;
-    viewerMenu->prependItem(textItem, false);
-}
+// void addCheckpointToViewer(timeMs_t checkpointDurationMs, uint16_t millimeters, uint16_t currentCheckpoint, uint8_t triggerType) {
+//     char* timeStr = new char[20];
+//     if(triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
+//       sprintf(timeStr, "# %i %im | ", currentCheckpoint + 1, int(millimeters / 1000));
+//     } else {
+//       sprintf(timeStr, "# %i | ", currentCheckpoint + 1);
+//     }
+//     viewerTimeStrings[viewerTimeStringsCount++] = timeStr;
+//     timToStr(checkpointDurationMs, timeStr + strlen(timeStr));
+//     TextItem* textItem = new TextItem(timeStr, true, TEXT_ALIGN_LEFT);
+//     viewerMenuItems[viewerMenuItemCount++] = textItem;
+//     viewerMenu->prependItem(textItem, false);
+// }
 
-void addLapToViewer(timeMs_t lapDurationMs, int16_t lapCount) {
-    char* timeStr = new char[25];
-    sprintf(timeStr, "Lap %i | ", lapCount);
-    viewerTimeStrings[viewerTimeStringsCount++] = timeStr;
-    timToStr(lapDurationMs, timeStr + strlen(timeStr));
-    TextItem* textItem = new TextItem(timeStr, true, TEXT_ALIGN_LEFT);
-    viewerMenuItems[viewerMenuItemCount++] = textItem;
-    viewerMenu->prependItem(textItem, false);
-}
+// void addLapToViewer(timeMs_t lapDurationMs, int16_t lapCount) {
+//     char* timeStr = new char[25];
+//     sprintf(timeStr, "Lap %i | ", lapCount);
+//     viewerTimeStrings[viewerTimeStringsCount++] = timeStr;
+//     timToStr(lapDurationMs, timeStr + strlen(timeStr));
+//     TextItem* textItem = new TextItem(timeStr, true, TEXT_ALIGN_LEFT);
+//     viewerMenuItems[viewerMenuItemCount++] = textItem;
+//     viewerMenu->prependItem(textItem, false);
+// }
 
-void addLineToViewer() {
-  Seperator* seperator = new Seperator();
-  viewerMenuItems[viewerMenuItemCount++] = seperator;
-  viewerMenu->prependItem(seperator, false);
-}
+// void addLineToViewer() {
+//   Seperator* seperator = new Seperator();
+//   viewerMenuItems[viewerMenuItemCount++] = seperator;
+//   viewerMenu->prependItem(seperator, false);
+// }
 
-void updateViewer() {
-  TrainingsSession& session = spiffsLogic.getActiveTraining();
-  viewerMenu->removeAll();
+// void updateViewer() {
+//   TrainingsSession& session = spiffsLogic.getActiveTraining();
+//   viewerMenu->removeAll();
   
-  for (size_t i = 0; i < viewerMenuItemCount; i++) {
-    delete viewerMenuItems[i];
-  }
-  viewerMenuItemCount = 0;
+//   for (size_t i = 0; i < viewerMenuItemCount; i++) {
+//     delete viewerMenuItems[i];
+//   }
+//   viewerMenuItemCount = 0;
 
-  for (size_t i = 0; i < viewerTimeStringsCount; i++) {
-    delete[] viewerTimeStrings[i];
-  }
-  viewerTimeStringsCount = 0;
+//   for (size_t i = 0; i < viewerTimeStringsCount; i++) {
+//     delete[] viewerTimeStrings[i];
+//   }
+//   viewerTimeStringsCount = 0;
 
-  timeMs_t lapStart = 0;
-  timeMs_t lastTrigger = 0;
-  int16_t lastMillimeters = -1;
-  int16_t lapCount = 1 + max(0, int(session.getTriggerCount()) - VIEWER_MAX_TRIGGERS); // start at 1 to have the first display as 1
-  bool checkpointPassed = false;
-  bool lapStarted = false;
-  uint16_t currentCheckpoint = 0;
-  for (size_t i = max(0, int(session.getTriggerCount()) - VIEWER_MAX_TRIGGERS); i < session.getTriggerCount(); i++) {
-    const Trigger& t = session.getTrigger(i);
-    if(lapStarted && (t.triggerType == STATION_TRIGGER_TYPE_FINISH || t.triggerType == STATION_TRIGGER_TYPE_START_FINISH)) {
-      char* timeStr = new char[15];
-      viewerTimeStrings[viewerTimeStringsCount++] = timeStr;
-      if(checkpointPassed) {
-        addCheckpointToViewer(t.timeMs - lastTrigger, t.millimeters, currentCheckpoint, t.triggerType);
-      }
-      addLapToViewer(t.timeMs - lapStart, lapCount);
-      addLineToViewer();
-      lapStarted = false;
-      lapCount++;
-    }
-    if(t.triggerType == STATION_TRIGGER_TYPE_START || t.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
-      lapStart = t.timeMs;
-      lastTrigger = t.timeMs;
-      lastMillimeters = -1;
-      checkpointPassed = false;
-      lapStarted = true;
-      currentCheckpoint = 0;
-    }
-    if(lapStarted && t.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
-      if(int(t.millimeters) <= lastMillimeters) continue;
-      addCheckpointToViewer(t.timeMs - lastTrigger, t.millimeters, currentCheckpoint, t.triggerType);
-      lastMillimeters = t.millimeters;
-      lastTrigger = t.timeMs;
-      checkpointPassed = true;
-      currentCheckpoint++;
-    }
-  }
-  if(lapStarted && !checkpointPassed) {
-    TextItem* runningTxt = new TextItem("Running...");
-    viewerMenuItems[viewerMenuItemCount++] = runningTxt;
-    viewerMenu->prependItem(runningTxt, false);
-  }
+//   timeMs_t lapStart = 0;
+//   timeMs_t lastTrigger = 0;
+//   int16_t lastMillimeters = -1;
+//   int16_t lapCount = 1 + max(0, int(session.getTriggerCount()) - VIEWER_MAX_TRIGGERS); // start at 1 to have the first display as 1
+//   bool checkpointPassed = false;
+//   bool lapStarted = false;
+//   uint16_t currentCheckpoint = 0;
+//   for (size_t i = max(0, int(session.getTriggerCount()) - VIEWER_MAX_TRIGGERS); i < session.getTriggerCount(); i++) {
+//     const Trigger& t = session.getTrigger(i);
+//     if(lapStarted && (t.triggerType == STATION_TRIGGER_TYPE_FINISH || t.triggerType == STATION_TRIGGER_TYPE_START_FINISH)) {
+//       char* timeStr = new char[15];
+//       viewerTimeStrings[viewerTimeStringsCount++] = timeStr;
+//       if(checkpointPassed) {
+//         addCheckpointToViewer(t.timeMs - lastTrigger, t.millimeters, currentCheckpoint, t.triggerType);
+//       }
+//       addLapToViewer(t.timeMs - lapStart, lapCount);
+//       addLineToViewer();
+//       lapStarted = false;
+//       lapCount++;
+//     }
+//     if(t.triggerType == STATION_TRIGGER_TYPE_START || t.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
+//       lapStart = t.timeMs;
+//       lastTrigger = t.timeMs;
+//       lastMillimeters = -1;
+//       checkpointPassed = false;
+//       lapStarted = true;
+//       currentCheckpoint = 0;
+//     }
+//     if(lapStarted && t.triggerType == STATION_TRIGGER_TYPE_CHECKPOINT) {
+//       if(int(t.millimeters) <= lastMillimeters) continue;
+//       addCheckpointToViewer(t.timeMs - lastTrigger, t.millimeters, currentCheckpoint, t.triggerType);
+//       lastMillimeters = t.millimeters;
+//       lastTrigger = t.timeMs;
+//       checkpointPassed = true;
+//       currentCheckpoint++;
+//     }
+//   }
+//   if(lapStarted && !checkpointPassed) {
+//     TextItem* runningTxt = new TextItem("Running...");
+//     viewerMenuItems[viewerMenuItemCount++] = runningTxt;
+//     viewerMenu->prependItem(runningTxt, false);
+//   }
 
-  // char* fileNameText = new char[20];
-  // viewerTimeStrings[viewerTimeStringsCount++] = fileNameText;
-  // sprintf(fileNameText, "File: %s", session->getFileName());
-  // TextItem* fileNameLabel = new TextItem(fileNameText, true);
-  // viewerMenuItems[viewerMenuItemCount++] = fileNameLabel;
-  // viewerMenu->prependItem(fileNameLabel);
+//   // char* fileNameText = new char[20];
+//   // viewerTimeStrings[viewerTimeStringsCount++] = fileNameText;
+//   // sprintf(fileNameText, "File: %s", session->getFileName());
+//   // TextItem* fileNameLabel = new TextItem(fileNameText, true);
+//   // viewerMenuItems[viewerMenuItemCount++] = fileNameLabel;
+//   // viewerMenu->prependItem(fileNameLabel);
   
-  // TextItem* viewerLabel = new TextItem("Viewer");
-  // viewerMenuItems[viewerMenuItemCount++] = viewerLabel;
-  // viewerMenu->prependItem(viewerLabel);
-}
+//   // TextItem* viewerLabel = new TextItem("Viewer");
+//   // viewerMenuItems[viewerMenuItemCount++] = viewerLabel;
+//   // viewerMenu->prependItem(viewerLabel);
+// }
 
 void trainingsModeChanged() {
   Serial.println("trainingsMode changed");
@@ -421,6 +449,9 @@ void wifiEnabledChanged() {
   wifiSSIDText->setHidden(!wifiEnabledCB->isChecked());
   wifiPasswdText->setHidden(!wifiEnabledCB->isChecked());
   wifiIPText->setHidden(!wifiEnabledCB->isChecked());
+  wifiHelpText1->setHidden(!wifiEnabledCB->isChecked());
+  wifiHelpText2->setHidden(!wifiEnabledCB->isChecked());
+  wifiHelpText3->setHidden(!wifiEnabledCB->isChecked());
 }
 
 void deleteAllSessionsPressed() {
@@ -428,7 +459,7 @@ void deleteAllSessionsPressed() {
 }
 
 void beginLCDDisplay() {
-  distFromStartInput = new NumberField("Dist. from start", "m", 0.1, 0, 100000, 1, 10, simpleInputChanged);
+  distFromStartInput = new NumberField("Dist. from start", "m", 0.1, 0, 655, 1, 10, simpleInputChanged);
   minDelayInput = new NumberField("Min. delay", "s", 0.1, 0.5, 1000, 1, 0, simpleInputChanged);
 
   displayCurrentText = new NumberField("Disp.", "A", 0.01, 0, 100, 2);
@@ -473,7 +504,12 @@ void beginLCDDisplay() {
   char* wifiSsidTextStr = new char[20]; // never deleted
   sprintf(wifiSsidTextStr, "Name: %s", APSsid);
   wifiSSIDText = new TextItem(wifiSsidTextStr, true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
-  wifiIPText = new TextItem(wifiIPStr, true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
+  wifiIPText = new TextItem("URL: http://8.8.8.8", true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
+  wifiHelpText1 = new TextItem("Troubleshooting:", true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
+  wifiHelpText2 = new TextItem("Double check that https", true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
+  wifiHelpText3 = new TextItem("is not used. Use http!", true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
+
+
 
   inPositionDelay = new NumberField("Delay", "s", 1, 0, UINT16_MAX, 0, 0);
 
@@ -496,6 +532,7 @@ void beginLCDDisplay() {
   startBtn = new Button("Start", startBtnPressed);
   lapBtn = new Button("Lap", lapBtnPressed);
   stopBtn = new Button("Stop", stopBtnPressed);
+  startFinishBtn = new Button("Start/Finish", startFinishBtnPressed);
   
   wifiEnabledCB = new CheckBox("WiFi Activated", false, false, wifiEnabledChanged);
 
@@ -511,7 +548,7 @@ void beginLCDDisplay() {
   Menu* debugMenu = new Menu();
   Menu* menuFactoryReset = new Menu("No");
   // connectionsMenuMaster = new Menu();
-  viewerMenu = new Menu();
+  // viewerMenu = new Menu();
   Menu* wifiMenu = new Menu();
   Menu* infoMenu = new Menu();
   Menu* startMenu = new Menu();
@@ -552,6 +589,7 @@ void beginLCDDisplay() {
     startMenu->addItem(startBtn);
     startMenu->addItem(lapBtn);
     startMenu->addItem(stopBtn);
+    startMenu->addItem(startFinishBtn);
 
   setupMenu->addItem(new SubMenu("System settings", systemSettingsMenu));
 
@@ -586,8 +624,9 @@ void beginLCDDisplay() {
     infoMenu->addItem(new TextItem("Version", true));
     infoMenu->addItem(new TextItem(VERSION, true));
     infoMenu->addItem(new TextItem("www.roller-results.com", true));
+    infoMenu->addItem(new TextItem("By Timo Lehenrtz", true));
 
-  viewerMenu->addItem(new TextItem("Viewer"));
+  // viewerMenu->addItem(new TextItem("Viewer"));
 
 
   // connectionsMenuMaster->addItem(new TextItem("Connections"));
@@ -597,15 +636,18 @@ void beginLCDDisplay() {
   wifiMenu->addItem(wifiSSIDText);
   wifiMenu->addItem(wifiPasswdText);
   wifiMenu->addItem(wifiIPText);
+  wifiMenu->addItem(wifiHelpText1);
+  wifiMenu->addItem(wifiHelpText2);
+  wifiMenu->addItem(wifiHelpText3);
   wifiMenu->addItem(cloudUploadEnabled);
 
   frameSections[0] = FrameSection(drawSetup, setupMenu);
   frameSections[1] = FrameSection(drawStartGun, startMenu);
   // frameSections[2] = FrameSection(drawConnections, connectionsMenuMaster);
-  frameSections[2] = FrameSection(drawViewer, viewerMenu);
-  frameSections[3] = FrameSection(drawFrameWiFi, wifiMenu);
+  // frameSections[2] = FrameSection(drawViewer, viewerMenu);
+  frameSections[2] = FrameSection(drawFrameWiFi, wifiMenu);
 
-  uiManager.begin(overlayCallbacks, overlaysCount, frameSections, 4);
+  uiManager.begin(overlayCallbacks, overlaysCount, frameSections, 3);
 
   // for (size_t i = 0; i < MAX_CONNECTIONS; i++) {
   //   connectionItems[i] = nullptr;
@@ -714,14 +756,18 @@ void handleLEDS() {
     }
   } else {
     for (int i = 0; i < min(double(getLEDCount()), millis() / 150.0 - 7); i++) {
-      if(isTriggered()) {
-        leds[i] = CRGB::White;
-      } else if(isLaserTimeout()) {
-        leds[i] = CRGB::Red;
+      if(wifiRunning) {
+          double value = (sin(((millis() + timeSyncOffset) - i * 750) / 1000.0) + 1.0) / 2.0;
+          leds[i] = CRGB(20 * value, 0, 70 * value);
       } else {
-        // leds[i] = CRGB::Green;
-        double value = (sin(((millis() + timeSyncOffset) - i * 750) / 1000.0) + 1.0) / 2.0;
-        leds[i] = CRGB(60 * value, 0, 40 * value);
+        if(isTriggered()) {
+          leds[i] = CRGB::White;
+        } else if(isLaserTimeout()) {
+          leds[i] = CRGB::Red;
+        } else {
+          double value = (sin(((millis() + timeSyncOffset) - i * 750) / 1000.0) + 1.0) / 2.0;
+          leds[i] = CRGB(60 * value, 0, 40 * value);
+        }
       }
     }
   }
@@ -730,22 +776,12 @@ void handleLEDS() {
   freeHeapText->setValue(ESP.getFreeHeap());
   heapSizeText->setValue(ESP.getHeapSize());
   laserValue->setValue(digitalRead(PIN_LASER));
-  // if(startBtn->isHighlighted() && !startBtn->isHidden() && session.isLapStarted()) {
-  //   stopBtn->setHighlighted(true);
-  //   startBtn->setHighlighted(false);
-  // }
-  // if(stopBtn->isHighlighted() && !stopBtn->isHidden() && !session.isLapStarted()) {
-  //   stopBtn->setHighlighted(false);
-  //   startBtn->setHighlighted(true);
-  // }
-  // startBtn->setHidden(session.isLapStarted());
-  // stopBtn->setHidden(!session.isLapStarted());
 
   // handle brightness
   float displayCurrent = predictLEDCurrentDraw();
   displayCurrentText->setValue(displayCurrent);
   float displayBrightness = MAX_CONTINUOUS_AMPS / displayCurrent * (displayBrightnessInput->getValue() / 100.0 * 255.0);
-  if(displayBrightness > 255) displayBrightness = 255;
+  if(displayBrightness > 150) displayBrightness = 150;
   displayCurrentAfterScaleText->setValue(displayCurrent * (displayBrightness / 255.0));
   float brightnessLPF = 0.05;
   displayBrightness = displayBrightness * brightnessLPF + lastDisplayBrightness * (1 - brightnessLPF);

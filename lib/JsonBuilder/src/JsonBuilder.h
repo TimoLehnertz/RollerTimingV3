@@ -7,6 +7,23 @@ public:
         json = "";
     }
 
+    /**
+     * @brief 
+     * 
+     * @param trigger The trigger to be inserted into JSON
+     * @param lapIndex the index of the Trigger
+     */
+    void insertTriggerObj(Trigger trigger) {
+        startObject();
+        addKey("type"); // triggerType
+        addValue(trigger.triggerType);
+        addKey("ms"); // milliseconds
+        addValue(trigger.timeMs);
+        addKey("mm"); // millimeters
+        addValue(trigger.millimeters);
+        endObject();
+    }
+
     void startObject() {
         addSeparatorIfNeeded();
         json += "{";
