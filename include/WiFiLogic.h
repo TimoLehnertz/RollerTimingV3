@@ -23,8 +23,8 @@
 #include <Storage.h>
 #include <GuiLogic.h>
 
-#define APSSID_DISPLAY_DEFAULT "RollerTimimg"
-#define APSSID_STATION_DEFAULT "RollerTimimg Station"
+#define APSSID_DISPLAY_DEFAULT "RollerTiming"
+#define APSSID_STATION_DEFAULT "RollerTiming Station"
 #define APPASSWORD_DEFAULT "GettingFaster"
 
 String APSsid = APSSID_DISPLAY_DEFAULT;
