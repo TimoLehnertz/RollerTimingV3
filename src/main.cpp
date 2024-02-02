@@ -75,9 +75,9 @@ void setup() {
   // complex with dependencies
   beginMasterSlaveLogic(); // depends on beginLCDDisplay
   beginPreferences(); // depends on beginLCDDisplay
-  beginWiFi();
   // trigger changes
   initStationDisplay();
+  beginWiFi();
 
   pinMode(1, INPUT);
 

@@ -465,6 +465,8 @@ void beginWiFi() {
         response->addHeader("Connection", "close");
         request->send(response);
     }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+        uiManager.popup("Updating...");
+        uiManager.handle(true);
         if(!index) {
             if(filename != "firmware.bin" && filename != "spiffs.bin") {
                 Serial.printf("invalid update file: %s\n", filename);
