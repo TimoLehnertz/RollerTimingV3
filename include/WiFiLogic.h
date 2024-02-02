@@ -501,7 +501,7 @@ void beginWiFi() {
                 if(!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)) {
                     Update.printError(Serial);
                 }
-            } else if(filename.startsWith("spiffs") || filename.startsWith("1_spiffs")) {
+            } else if(filename.startsWith("spiffs") || filename.startsWith("2_spiffs")) {
                 Serial.println("Updating spiffs");
                 uiManager.popup("Updating spiffs");
                 uiManager.handle(true);
