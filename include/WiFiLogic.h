@@ -261,6 +261,9 @@ void handleUpdatePage(AsyncWebServerRequest* request) {
                     <p><b>Attention</b> Updating the firmware will erase <b>all</b> your settings and saved Trainings sessions. Only proceed if that is okay!</p>
                     <p>Follow all of the steps below closely in the correct order</p>
                     <br>
+                    <br>
+                    <p>While updating monitor the little blue display!</p>
+                    <br>
                     <br><p>Upload procedure for displays:</p>
                     <ol>
                     <li>Choose "firmware.bin" and hit Update</li>
@@ -462,10 +465,10 @@ void beginWiFi() {
     // attach filesystem root at URL /fs
     // server.serveStatic("/fs", SPIFFS, "/");
     server.on(PSTR("/uploadUpdate"), HTTP_POST, [](AsyncWebServerRequest * request) {
-        shouldReboot = !Update.hasError();
-        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", updateSuccsessfull ? "Update succsessful. Rebooting... Rebooting will take up to a minute. Dont cut power!" : "Update failed");
-        response->addHeader("Connection", "close");
-        request->send(response);
+        shouldReboot = true;
+        // AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", updateSuccsessfull ? "Update succsessful. Rebooting... Rebooting will take up to a minute. Dont cut power!" : "Update failed");
+        // response->addHeader("Connection", "close");
+        // request->send(response);
     }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
         updateSuccsessfull = false;
         uiManager.popup("Updating...");
@@ -475,11 +478,19 @@ void beginWiFi() {
                 Serial.printf("invalid update file: %s\n", filename);
                 uiManager.popup("Invalid file!");
                 uiManager.handle(true);
+                delay(3000);
+                uiManager.popup("Upload valid File!");
+                uiManager.handle(true);
+                delay(3000);
                 return;
             }
-            if(filename.startsWith("spiffs") || filename.startsWith("2_spiffs") && !isDisplaySelect->getValue()) {
+            if((filename.startsWith("spiffs") || filename.startsWith("2_spiffs")) && !isDisplaySelect->getValue()) {
                 uiManager.popup("Wrong file!");
                 uiManager.handle(true);
+                delay(3000);
+                uiManager.popup("Update firmware!");
+                uiManager.handle(true);
+                delay(3000);
                 return; // stations dont need spiffs updates
             }
             Serial.printf("Update Start: %s\n", filename.c_str());
@@ -508,13 +519,15 @@ void beginWiFi() {
         if(final) {
             if(Update.end(true)) {
                 Serial.printf("Update Success: %uB\n", index+len);
-                uiManager.popup("Succsess");
                 updateSuccsessfull = true;
+                uiManager.popup("Succsess. Rebooting..");
                 uiManager.handle(true);
+                delay(1000);
             } else {
                 Update.printError(Serial);
-                uiManager.popup("Error");
+                uiManager.popup("Error. Rebooting..");
                 uiManager.handle(true);
+                delay(1000);
             }
         }
     });
