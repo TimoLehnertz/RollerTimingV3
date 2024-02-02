@@ -420,6 +420,8 @@ DoubleLinkedList<SessionPageInfo> buildSessionTriggers(JsonBuilder& builder, Tra
     return sessionPageInfos;
 }
 
+bool updateSuccsessfull = false;
+
 void beginWiFi() {
     Serial.println("Starting WiFi");
     // WiFi.eraseAP();
@@ -461,28 +463,37 @@ void beginWiFi() {
     // server.serveStatic("/fs", SPIFFS, "/");
     server.on(PSTR("/uploadUpdate"), HTTP_POST, [](AsyncWebServerRequest * request) {
         shouldReboot = !Update.hasError();
-        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", shouldReboot ? "Update succsessful. Rebooting... Rebooting will take up to a minute. Dont cut power!" : "Update failed");
+        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", updateSuccsessfull ? "Update succsessful. Rebooting... Rebooting will take up to a minute. Dont cut power!" : "Update failed");
         response->addHeader("Connection", "close");
         request->send(response);
     }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+        updateSuccsessfull = false;
         uiManager.popup("Updating...");
         uiManager.handle(true);
         if(!index) {
-            if(filename != "firmware.bin" && filename != "spiffs.bin") {
+            if(!filename.startsWith("firmware") && !filename.startsWith("spiffs") && !filename.startsWith("1_firmware") && !filename.startsWith("2_spiffs")) {
                 Serial.printf("invalid update file: %s\n", filename);
+                uiManager.popup("Invalid file!");
+                uiManager.handle(true);
                 return;
             }
-            if(filename == "spiffs.bin" && !isDisplaySelect->getValue()) {
+            if(filename.startsWith("spiffs") || filename.startsWith("2_spiffs") && !isDisplaySelect->getValue()) {
+                uiManager.popup("Wrong file!");
+                uiManager.handle(true);
                 return; // stations dont need spiffs updates
             }
             Serial.printf("Update Start: %s\n", filename.c_str());
-            if(filename == "firmware.bin") {
+            if(filename.startsWith("firmware") || filename.startsWith("1_firmware")) {
                 Serial.println("Updating firmware");
+                uiManager.popup("Updating firmware");
+                uiManager.handle(true);
                 if(!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)) {
                     Update.printError(Serial);
                 }
-            } else if(filename == "spiffs.bin") {
+            } else if(filename.startsWith("spiffs") || filename.startsWith("1_spiffs")) {
                 Serial.println("Updating spiffs");
+                uiManager.popup("Updating spiffs");
+                uiManager.handle(true);
                 if(!Update.begin(4294967295U, U_SPIFFS)) {
                 //   if(!Update.begin(SPIFFS.totalBytes(), U_SPIFFS)) {
                     Update.printError(Serial);
@@ -497,8 +508,13 @@ void beginWiFi() {
         if(final) {
             if(Update.end(true)) {
                 Serial.printf("Update Success: %uB\n", index+len);
+                uiManager.popup("Succsess");
+                updateSuccsessfull = true;
+                uiManager.handle(true);
             } else {
                 Update.printError(Serial);
+                uiManager.popup("Error");
+                uiManager.handle(true);
             }
         }
     });
