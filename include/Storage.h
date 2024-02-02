@@ -15,7 +15,7 @@
 #include <GuiLogic.h>
 #include <WiFiLogic.h>
 
-#define STORAGE_CHECK 201 // version + garbaage
+#define STORAGE_CHECK 20001 // version + garbaage
 
 Preferences preferences;
 
@@ -33,14 +33,12 @@ void writePreferences() {
   // preferences.putInt("stationType", stationTypeSelect->getValue());
   preferences.putBool("uploadEnabled", cloudUploadEnabled->isChecked());
   preferences.putInt("fontSize", fontSizeSelect->getValue());
-  preferences.putString("wifiSSID", wifiSSID);
-  preferences.putString("wifiPassword", wifiPassword);
+  preferences.putString("wifiSSID", uploadWifiSSID);
+  preferences.putString("wifiPassword", uploadWifiPassword);
   preferences.putString("username", username);
   // preferences.putBool("wifiOn", wifiEnabledCB->isChecked());
-  if(isDisplaySelect->getValue()) { // is display
-    preferences.putString("APSsid", APSsid);
-    preferences.putString("APPassword", APPassword);
-  }
+  preferences.putString("APSsid", APSsid);
+  preferences.putString("APPassword", APPassword);
 }
 
 void readPreferences() {
@@ -54,8 +52,8 @@ void readPreferences() {
   // stationTypeSelect->setValue(preferences.getInt("stationType"));
   cloudUploadEnabled->setChecked(preferences.getBool("uploadEnabled"));
   fontSizeSelect->setValue(preferences.getInt("fontSize"));
-  wifiSSID = preferences.getString("wifiSSID");
-  wifiPassword = preferences.getString("wifiPassword");
+  uploadWifiSSID = preferences.getString("wifiSSID");
+  uploadWifiPassword = preferences.getString("wifiPassword");
   username = preferences.getString("username");
   // if(isDisplaySelect->getValue()) { // only activate wifi if this is a display
   //   wifiEnabledCB->setChecked(preferences.getBool("wifiOn"), false);
@@ -80,9 +78,11 @@ void resetAllSettings() {
   stationTypeSelect->setValue(STATION_TRIGGER_TYPE_START_FINISH);
   cloudUploadEnabled->setChecked(false);
   fontSizeSelect->setValue(0);
-  wifiSSID = "";
-  wifiPassword = "";
+  uploadWifiSSID = "";
+  uploadWifiPassword = "";
   username = "";
+  APSsid = APSSID_DISPLAY_DEFAULT;
+  APPassword = APPASSWORD_DEFAULT;
   // wifiEnabledCB->setChecked(true);
   // determine if this is a display or laser by checking if PIN_LASER is floating
   // u8_t floatingCount = 0;
@@ -96,15 +96,22 @@ void resetAllSettings() {
   // }
   // Serial.printf("floatingCount: %i\n", floatingCount);
   // bool displayStation = floatingCount > 10; // is floating
-  isDisplaySelect->setValue(false); // likely more often updated
-  isDisplayChanged();
+  // isDisplaySelect->setValue(false); // likely more often updated
+  // isDisplayChanged();
 }
 
 void factoryReset() {
-  Serial.println("Factory resetting");
+  Serial.println("Resetting");
+  uiManager.handle(true);
   resetAllSettings();
   writePreferences();
   uiManager.popup("Factory reset done");
+  uiManager.handle(true);
+  delay(1000);
+  uiManager.popup("Rebooting...");
+  uiManager.handle(true);
+  delay(1000);
+  ESP.restart();
 }
 
 void beginPreferences() {
@@ -112,7 +119,7 @@ void beginPreferences() {
   if(preferences.getInt("check") == STORAGE_CHECK) {
     readPreferences();
   } else {
-    factoryReset();
     preferences.putInt("check", STORAGE_CHECK);
+    factoryReset();
   }
 }

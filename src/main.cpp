@@ -22,6 +22,7 @@
 #include <Sound.h>
 #include <DoubleLinkedList.h>
 #include <driver/adc.h>
+#include <heltec.h>
 
 void testMillionTriggers();
 
@@ -45,13 +46,6 @@ void testMillionTriggers();
 void trigger() {
   triggerCount++;
   lastTriggerMs = millis();
-}
-
-void beginLaser() {
-
-}
-void endLaser() {
-
 }
 
 void setup() {
@@ -80,14 +74,16 @@ void setup() {
   beginLCDDisplay(); // needed for status variables
   // complex with dependencies
   beginMasterSlaveLogic(); // depends on beginLCDDisplay
-  // trigger changes
   beginPreferences(); // depends on beginLCDDisplay
-  isDisplayChanged();
-  if(isDisplaySelect->getValue()) { // is display
-    beginWiFi();
-  }
+  beginWiFi();
+  // trigger changes
+  initStationDisplay();
 
   pinMode(1, INPUT);
+
+  if(isDisplaySelect->getValue() && !spiffsLogic.isVersionMatch()) {
+    uiManager.popup("Update Spiffs now!");
+  }
 
   Serial.println("Setup complete");
   /**
@@ -177,181 +173,3 @@ void loop() {
   // vBat = vbat;
   // float vbat = 100 / (100+390) * VADC_IN1;
 }
-
-
-
-// --------
-
-// /**
-//  * @file WiFiLogic.h
-//  * @author Timo Lehnertz
-//  * @brief File dealing with everything related to ESP32 WiFi
-//  * @version 0.1
-//  * @date 2023-07-11
-//  * 
-//  * @copyright Copyright (c) 2024
-//  * 
-//  */
-// #include <Arduino.h>
-// #include <SPI.h>
-// #include <Wire.h>
-// #include <WiFi.h>
-// #include <ESPAsyncWebServer.h>
-// #include <AsyncTCP.h>
-// #include <DNSServer.h>
-// #include <HTTPClient.h>
-
-// #define APSSID_DISPLAY_DEFAULT "RollerTimimg"
-// #define APSSID_STATION_DEFAULT "RollerTimimg Station"
-// #define APPASSWORD_DEFAULT "Speedskate!"
-
-// String APSsid = APSSID_DISPLAY_DEFAULT;
-// String APPassword = APPASSWORD_DEFAULT;
-
-// DNSServer dnsServer;
-// AsyncWebServer server(80);
-
-// const byte DNS_PORT = 53;
-
-// // The access points IP address and net mask
-// // It uses the default Google DNS IP address 8.8.8.8 to capture all 
-// // Android dns requests
-// IPAddress apIP(8, 8, 8, 8);
-// IPAddress netMsk(255, 255, 255, 0);
-
-// void handleUpdate(AsyncWebServerRequest* request);
-
-// class CaptiveRequestHandler : public AsyncWebHandler {
-// public:
-//   CaptiveRequestHandler() {
-//     server.on("/", HTTP_GET, handleUpdate);
-//   }
-
-//   virtual ~CaptiveRequestHandler() {}
-
-//   bool canHandle(AsyncWebServerRequest *request){
-//     // request->addInterestingHeader("ANY");
-//     return true;
-//   }
-
-//   void handleRequest(AsyncWebServerRequest *request) {
-    
-//   }
-// };
-
-// // ?
-// String processor(const String& var) {
-//   return String();
-// }
-
-
-// void handleUpdate(AsyncWebServerRequest* request) {
-//     request->send(200, "text/html", F(R""""(<!DOCTYPE html>
-//         <html lang="en">
-//         <head>
-//             <meta charset="UTF-8">
-//             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-//             <link rel="icon" type="image/png" href="/logo.png">
-//             <title>Roller timing</title>
-//         </head>
-//         <style>
-//         * {
-//             font-family: "Arial", sans-serif;
-//             color: #333;
-//         }
-//         body {
-//             margin: 0;
-//             padding: 1rem;
-//             background: linear-gradient(to bottom right, #4287f5, #b243f5);
-//             display: flex;
-//             justify-content: center;
-//             align-items: start;
-//             padding-top: 5rem;
-//             min-height: calc(100vh - 5rem);
-//         }
-//         .container {
-//             display: flex;
-//             justify-content: center;
-//             align-items: start;
-//             background-color: white;
-//             width: 40rem;
-//             border-radius: 20px;
-//             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-//             padding: 30px;
-//         }
-//         h1 {
-//             font-size: 32px;
-//             margin-bottom: 20px;
-//         }
-//         p {
-//             font-size: 16px;
-//             color: #555;
-//             margin: 0;
-//         }
-//         .download-btn {
-//             border: none;
-//             display: inline-block;
-//             padding: 10px 10px;
-//             background-color: #4287f5;
-//             color: white;
-//             font-size: 15px;
-//             border-radius: 8px;
-//             text-decoration: none;
-//         }
-//         </style>
-//         <body>
-//             <div class="container">
-//                 <div class="content">
-//                     <div class="error" id="error-message"></div>
-//                     <h1>Roller timing version 2.0</h1>
-//                     <br><br><br>
-//                     <p>Attention. Updating the firmware will erase <b>all</b> your settings and saved Trainings sessions. Only proceed if that is okay!</p>
-//                     <p>Upload procedure:</p>
-//                     <ol>
-//                     <li>Upload "firmware.bin"</li>
-//                     <li>The device will reboot. And WiFi will disconnect. Thats normal. If the device does not restard manually wait 15 seconds then powercycle the device</li>
-//                     <li>If neccessary reenable wifi</li>
-//                     <li>Connect to this site again</li>
-//                     <li>Upload spiffs.bin</li>
-//                     <li>The device should reboot again. If so the update process was succsessful</li>
-//                     </ol>
-//                     <form method='POST' action='/uploadUpdate' enctype='multipart/form-data' id='upload-form'>
-//                         <input type='file' name='update' accept=".bin" required>
-//                         <input type='submit' value='Update' class='download-btn'>
-//                     </form>
-//                     <br><hr><br>
-//                     <p>
-//                         Roller timing<br>
-//                         Software version: <span style="color: #24240f">2.0</span><br>
-//                         Roller results - From skaters for skaters<br>
-//                         by Timo Lehnertz
-//                     </p>
-//                 </div>
-//             </div>
-//         </body>
-//         </html>)""""));
-// }
-
-
-// void setup() {
-//     Serial.begin(115200);
-//     Serial.println("Starting WiFi");
-//     // WiFi.eraseAP();
-//     // WiFi.disconnect(false, true);
-//     WiFi.softAPConfig(apIP, apIP, netMsk);
-//     WiFi.softAP(APSsid, APPassword);
-//     IPAddress ip = WiFi.softAPIP();
-//     Serial.print("AP IP address: ");
-//     Serial.println(ip);
-
-//     // dnsServer.setErrorReplyCode(DNSReplyCode::NoError); 
-//     // dnsServer.start(DNS_PORT, "*", apIP);
-
-//     // server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
-//     server.on("/", HTTP_GET, handleUpdate);
-//     server.begin();
-// }
-
-// void loop() {
-//     // dnsServer.processNextRequest();
-// }

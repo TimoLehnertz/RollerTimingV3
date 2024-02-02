@@ -73,8 +73,8 @@ float vBat = 3.8;
 /**
  * Cloud upload variables
  */
-String wifiSSID = "";
-String wifiPassword = "";
+String uploadWifiSSID = "";
+String uploadWifiPassword = "";
 String username = "";
 
 /**

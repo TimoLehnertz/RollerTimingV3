@@ -73,7 +73,7 @@ void slaveTrigger(timeMs_t atMs, uint8_t triggerType, uint16_t millimeters) {
 }
 
 void radioReceived(const uint8_t* byteArr, size_t size) {
-    Serial.println("radioReceived");
+    // Serial.println("radioReceived");
     if(isDisplaySelect->getValue()) { // master
         if(size == sizeof(Trigger)) {
             if(lastTimeSync == 0) {

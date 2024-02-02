@@ -78,7 +78,7 @@ ICACHE_RAM_ATTR void setFlag(void) {
 
 void handleRadioReceive() {
   if(receivedFlag) {
-    Serial.println("Received");
+    // Serial.println("Received");
     receivedFlag = false;
     uint8_t byteArr[255];
     int error = radio.readData(byteArr, 255);

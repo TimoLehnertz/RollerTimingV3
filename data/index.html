@@ -221,7 +221,8 @@
                 <div class="flex row">
                     <button class="toggle-btn" id="displaySetupBtn" onclick="toggle('displaySetup')">Display setup</button>
                     <button class="toggle-btn" id="couldUploadBtn" onclick="toggle('couldUpload')">RR Could upload</button>
-                    <button class="toggle-btn" id="getStartedBtn" onclick="toggle('getStarted')">Get started</button>
+                    <a class="toggle-btn" href="/user-manual.html">Get started</a>
+                    <a class="toggle-btn" href="/update">Firmware update</a>
                 </div>
             </div>
             <div class="page" id="couldUploadPage">
@@ -248,7 +249,7 @@
                 <br>
                 <div class="flex column start">
                     <label for="wifiSSID">WiFi name (ssid)</label>
-                    <input type="text" id="wifiSSID" placeholder="WiFi name" required>
+                    <input type="text" id="wifiSSID" placeholder="WiFi name" minlength="2" maxlength="32" required>
                 </div>
                 <br>
                 <div class="flex column start">
@@ -294,25 +295,12 @@
                         <label for="APPassword">Password for connecting</label>
                         <input id="APPassword" name="APPassword" type="text" maxlength="32" minlength="8" required>
                     </div>
-                    <p>After changing the name or password you will need to reconnect using the new credentials.</p>
-                    <p>The name and password will always be displayed on the devices display on the WiFi page.</p>
                     <br>
-                    <button class="download-btn" type="submit">Update name and password</button>
+                    <p>After changing the name or password the display will reboot and you will need to reconnect using the new credentials. This will end the current session!</p>
+                    <p>The WiFi name and password will always be displayed on the devices display on the WiFi page.</p>
+                    <br>
+                    <button class="download-btn" type="submit">Reboot and Update WiFi</button>
                 </form>
-                <br>
-                <p>
-                    <a href="/update" class="download-btn">Update firmware</a>
-                </p>
-            </div>
-            <div class="page" id="getStartedPage">
-                <h3>Get started guide</h3>
-                <p>Battery life</p>
-                <ul>
-                    <li>The laser stations without antenna and display last for more than 24h of use.</li>
-                    <li>The laser stations with antenna and display last for roughly 10 hours.</li>
-                    <li>The battery life of the display station depends on the display brightness. If the brightness is set to 100 percent the battery will be empty after 1h30. 5 percent brightness will give closer to 5h of operation.</li>
-                </ul>
-                <p style="text-align: left">Lorem ipsum dolor sit amet consectetur adipisicing elit. Consequuntur, totam eos. Laboriosam eius, dolorem deleniti molestiae sed omnis asperiores iure nulla commodi neque eaque cumque repellendus molestias quidem quos! Mollitia.</p>
             </div>
             <div class="page" id="startGunPage">
                 <br>
@@ -406,33 +394,8 @@ const savedPage = localStorage.getItem("page");
 if(savedPage) {
     toggle(savedPage);
 } else {
-    toggle('getStarted');
+    toggle('viewer');
 }
-
-//update
-const form = document.getElementById('upload-form');
-form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    var data = new FormData(form);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `/update`, true);
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === XMLHttpRequest.DONE) {
-            if (xhr.status === 200) {
-                alert("Success. Don't cut power until the device reboots. This site will soon disconnect");
-            } else {
-                alert("An error occurred while updating");
-            }
-        }
-    }
-    xhr.upload.addEventListener('progress', function(evt) {
-        if (evt.lengthComputable) {
-            const per = evt.loaded / evt.total;
-            document.getElementById('upload-progress').innerHTML = `progress: ${Math.round(per*100)}%`;
-        }
-    }, false);
-    xhr.send(data);
-});
 
 const startGunSpeed = localStorage.getItem("startGunSpeed");
 if(startGunSpeed) {
@@ -653,7 +616,7 @@ function fetchSession(fileName, page, callback) {
                 if(debug) {
                     callback(true, session);
                 }
-                logError("Could not load sessions. Error: " + xhr.status);
+                // logError("Could not load sessions. Error: " + xhr.status);
             }
         }
     };
@@ -663,8 +626,6 @@ function fetchSession(fileName, page, callback) {
 
 function download(file) {
     let sessionTriggers = [];
-    session.triggers
-    session.maxPages;
     function fetchPage(page, callback) {
         fetchSession(file, page, (succsess, session) => {
             if(succsess) {

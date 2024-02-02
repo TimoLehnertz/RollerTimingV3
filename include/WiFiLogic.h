@@ -25,7 +25,7 @@
 
 #define APSSID_DISPLAY_DEFAULT "RollerTimimg"
 #define APSSID_STATION_DEFAULT "RollerTimimg Station"
-#define APPASSWORD_DEFAULT "Speedskate!"
+#define APPASSWORD_DEFAULT "GettingFaster"
 
 String APSsid = APSSID_DISPLAY_DEFAULT;
 String APPassword = APPASSWORD_DEFAULT;
@@ -42,8 +42,6 @@ AsyncEventSource liveEventHandler("/live");
 // Android dns requests
 IPAddress apIP(8, 8, 8, 8);
 IPAddress netMsk(255, 255, 255, 0);
-
-bool wifiRunning = false;
 
 bool shouldReboot = false;
 
@@ -63,12 +61,13 @@ void handleStartIn(AsyncWebServerRequest* request);
 void handleSettings(AsyncWebServerRequest* request);
 void handleDeleteSession(AsyncWebServerRequest* request);
 void handleLogo(AsyncWebServerRequest* request);
+void handleUserManual(AsyncWebServerRequest* request);
 void handleWiFiSettings(AsyncWebServerRequest* request);
 void handleUpdatePage(AsyncWebServerRequest* request);
 DoubleLinkedList<SessionPageInfo> buildSessionTriggers(JsonBuilder& builder, TrainingsSession& session, size_t page);
 
 void beginWiFi();
-void endWiFi();
+// void endWiFi();
 void writePreferences();
 void wiFiCredentialsChanged();
 
@@ -171,6 +170,11 @@ void handleLogo(AsyncWebServerRequest* request) {
     request->send(response);
 }
 
+void handleUserManual(AsyncWebServerRequest* request) {
+    AsyncWebServerResponse* response = request->beginResponse(SPIFFS, "/user-manual.html", "text/html");
+    request->send(response);
+}
+
 void handleStartIn(AsyncWebServerRequest* request) {
     if(!request->hasParam("delayMs")) {
         request->send(400, "text/html", "No delayMs");
@@ -260,17 +264,17 @@ void handleUpdatePage(AsyncWebServerRequest* request) {
                     <br><p>Upload procedure for displays:</p>
                     <ol>
                     <li>Choose "firmware.bin" and hit Update</li>
-                    <li>The device will reboot and WiFi will disconnect. Thats normal. The update will take up to one minute. Don't cut power during an update</li>
-                    <li>Enable wifi again, connect and navigate to <b>http://8.8.8.8/update</b>. Take a photo, screenshot or copy this link to not loose it after step 2</li>
+                    <li>The device will reboot and WiFi will disconnect. Thats normal. The update will take up to one minute. Don't cut power during the update!</li>
+                    <li>Connect and navigate to <b>http://8.8.8.8</b> All pages except the update page will be disabled</li>
                     <li>Choose "spiffs.bin" and hit Update</li>
-                    <li>The device will reboot and WiFi will disconnect. Thats normal. The update will take up to one minute. Don't cut power during an update</li>
+                    <li>The device will reboot and WiFi will disconnect. Thats normal. The update will take up to one minute. Don't cut power during the update!</li>
                     <li>Done</li>
                     </ol>
                     <hr>
                     <br><p>Upload procedure for stations:</p>
                     <ol>
                     <li>Choose "firmware.bin" and hit Update</li>
-                    <li>The device will reboot and WiFi will disconnect. Thats normal. The update will take up to one minute. Don't cut power during an update</li>
+                    <li>The device will reboot and WiFi will disconnect. Thats normal. The update will take up to one minute. Don't cut power during the update!</li>
                     <li>Done</li>
                     </ol>
                     <form method='POST' action='/uploadUpdate' enctype='multipart/form-data' id='upload-form'>
@@ -332,10 +336,10 @@ void handleSettings(AsyncWebServerRequest* request) {
         cloudUploadEnabled->setChecked(true);
     }
     if(request->hasParam("wifiSSID")) {
-        wifiSSID = request->getParam("wifiSSID")->value();
+        uploadWifiSSID = request->getParam("wifiSSID")->value();
     }
     if(request->hasParam("wifiPassword")) {
-        wifiPassword = request->getParam("wifiPassword")->value();
+        uploadWifiPassword = request->getParam("wifiPassword")->value();
     }
     writePreferences();
     request->send(200, "text/html", "OK");
@@ -354,9 +358,9 @@ void handleSessionsJson(AsyncWebServerRequest* request) {
     builder.addKey("username");
     builder.addValue(username);
     builder.addKey("wifiSSID");
-    builder.addValue(wifiSSID);
+    builder.addValue(uploadWifiSSID);
     builder.addKey("wifiPassword");
-    builder.addValue(wifiPassword);
+    builder.addValue(uploadWifiPassword);
     builder.addKey("APSsid");
     builder.addValue(APSsid);
     builder.addKey("APPassword");
@@ -419,20 +423,20 @@ DoubleLinkedList<SessionPageInfo> buildSessionTriggers(JsonBuilder& builder, Tra
 void beginWiFi() {
     Serial.println("Starting WiFi");
     // WiFi.eraseAP();
-    WiFi.disconnect(false, true);
+    // WiFi.disconnect(false, true);
+    WiFi.mode(WIFI_AP_STA);
     WiFi.softAPConfig(apIP, apIP, netMsk);
     WiFi.softAP(APSsid, APPassword);
     IPAddress ip = WiFi.softAPIP();
     Serial.print("AP IP address: ");
     Serial.println(ip);
 
-    // dnsServer.setErrorReplyCode(DNSReplyCode::NoError); 
+    // dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
     // dnsServer.start(DNS_PORT, "*", apIP);
 
     // server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
-    server.on("/", HTTP_GET, handleIndexPage);
-    server.on("/update", HTTP_GET, handleUpdatePage);
-    if(isDisplaySelect->getValue()) { // is display
+    if(isDisplaySelect->getValue() && spiffsLogic.isVersionMatch()) { // is display and spiffs version is correct
+        server.on("/", HTTP_GET, handleIndexPage);
         server.on("/sessions.json", HTTP_GET, handleSessionsJson);
         server.on("/session", HTTP_GET, handleSession);
         server.on("/inPosition.mp3", HTTP_GET, handleInPositionMp3);
@@ -443,9 +447,15 @@ void beginWiFi() {
         server.on("/deleteSession", HTTP_GET, handleDeleteSession);
         server.on("/logo.png", HTTP_GET, handleLogo);
         server.on("/updateCredentials", HTTP_GET, handleWiFiSettings);
+        server.on("/user-manual.html", HTTP_GET, handleUserManual);
+        server.on("/update", HTTP_GET, handleUpdatePage); // ipdate page has own url
         server.onNotFound(handleNotFound);
         server.addHandler(&liveEventHandler);
         liveEventHandler.onConnect(handleLiveConnect);
+    } else {
+        // everything is getting to the update page
+        server.on("/", HTTP_GET, handleUpdatePage);
+        server.onNotFound(handleUpdatePage);
     }
     // attach filesystem root at URL /fs
     // server.serveStatic("/fs", SPIFFS, "/");
@@ -460,14 +470,17 @@ void beginWiFi() {
                 Serial.printf("invalid update file: %s\n", filename);
                 return;
             }
+            if(filename == "spiffs.bin" && !isDisplaySelect->getValue()) {
+                return; // stations dont need spiffs updates
+            }
             Serial.printf("Update Start: %s\n", filename.c_str());
-            if(filename != "firmware.bin") {
+            if(filename == "firmware.bin") {
+                Serial.println("Updating firmware");
                 if(!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)) {
                     Update.printError(Serial);
                 }
-            } else if(filename != "spiffs.bin") {
-                isDisplaySelect->setValue(1);
-                writePreferences();
+            } else if(filename == "spiffs.bin") {
+                Serial.println("Updating spiffs");
                 if(!Update.begin(4294967295U, U_SPIFFS)) {
                 //   if(!Update.begin(SPIFFS.totalBytes(), U_SPIFFS)) {
                     Update.printError(Serial);
@@ -488,16 +501,17 @@ void beginWiFi() {
         }
     });
     server.begin();
-    wifiRunning = true;
 }
 
-void endWiFi() {
-    Serial.println("Stopping WiFi");
-    server.end();
-    WiFi.enableAP(false);
-    WiFi.softAPdisconnect();
-    wifiRunning = false;
-}
+// void endWiFi() {
+    // Serial.println("Stopping WiFi");
+    // server.end();
+    // // WiFi.enableAP(false);
+    // // WiFi.softAPdisconnect();
+    // WiFi.disconnect();
+    // WiFi.mode(WIFI_OFF);
+    // wifiRunning = false;
+// }
 
 bool cloudUploadRunning = false;
 timeMs_t cloudUploadStart = 0;
@@ -505,12 +519,15 @@ timeMs_t cloudUploadStart = 0;
 char uploadPopupMessage[20];
 
 bool handleCloudUpload() {
-    if(wifiRunning) return true;
     if(WiFi.status() == WL_CONNECTED) {
+        FastLED.clear();
+        FastLED.setBrightness(10);
+        matrix.print("Uploading", 1, 1, CRGB::BlueViolet, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
+        FastLED.show();
         sprintf(uploadPopupMessage, "Cloud upload..");
         uiManager.popup(uploadPopupMessage);
         uiManager.handle(true);
-        Serial.printf("Successfully connected to %s!\n", wifiSSID);
+        Serial.printf("Successfully connected to %s!\n", uploadWifiSSID);
         HTTPClient http;
 
         String url = "https://www.roller-results.com/api/index.php?uploadResults=1";
@@ -521,7 +538,7 @@ bool handleCloudUpload() {
 
         http.begin(url);
         http.addHeader("Content-Type", "application/json");
-        size_t i = 0;
+        size_t trainingsID = 0;
         bool succsess = true;
         DoubleLinkedList<String> uploadedFiles = DoubleLinkedList<String>();
         for (auto &&trainingsMeta : spiffsLogic.getTrainingsMetas()) {
@@ -529,40 +546,56 @@ bool handleCloudUpload() {
             if(trainingsMeta.isRunning) continue;
             Serial.printf("Uploading %s\n", trainingsMeta.fileName);
             TrainingsSession trainingsSession = spiffsLogic.getTraining(trainingsMeta.fileName);
-            JsonBuilder builder = JsonBuilder();
-            builder.startObject();
-            builder.addKey("user");
-            builder.addValue(username);
-            builder.addKey("triggers");
-            builder.startArray();
-            // for (Trigger &trigger : trainingsSession) {
-            //     builder.startObject();
-            //     builder.addKey("triggerType");
-            //     builder.addValue(trigger.triggerType);
-            //     builder.addKey("timeMs");
-            //     builder.addValue(trigger.timeMs);
-            //     builder.addKey("millimeters");
-            //     builder.addValue(trigger.millimeters);
-            //     builder.endObject();
-            // }
-            builder.endArray();
-            builder.endObject();
-
-            int httpResponseCode = http.POST(builder.getJson());
-            i++;
-            if (httpResponseCode == 200) {
-                String response = http.getString();
-                Serial.println("Response from roller results: " + response);
-                uiManager.handle(true);
-                sprintf(uploadPopupMessage, "Uploaded %i/%i", i, spiffsLogic.getTrainingsMetas().getSize());
+            const int maxTriggersPerRequest = 5;
+            trainingsSession.beginStream();
+            bool firstPage = true;
+            String sessionName = "";
+            while(trainingsSession.hasNext() && succsess) {
+                JsonBuilder builder = JsonBuilder();
+                builder.startObject();
+                builder.addKey("user");
+                builder.addValue(username);
+                if(!firstPage) {
+                    builder.addKey("sessionName");
+                    builder.addValue(sessionName);
+                }
+                builder.addKey("triggers");
+                builder.startArray();
+                size_t currentSize = 0;
+                while (trainingsSession.hasNext() && currentSize < maxTriggersPerRequest) {
+                    Trigger trigger = trainingsSession.next();
+                    builder.startObject();
+                    builder.addKey("triggerType");
+                    builder.addValue(trigger.triggerType);
+                    builder.addKey("timeMs");
+                    builder.addValue(trigger.timeMs);
+                    builder.addKey("millimeters");
+                    builder.addValue(trigger.millimeters);
+                    builder.endObject();
+                    currentSize++;
+                }
+                builder.endArray();
+                builder.endObject();
+                int httpResponseCode = http.POST(builder.getJson());
+                if (httpResponseCode == 200) {
+                    sessionName = http.getString();
+                    firstPage = false;
+                    Serial.println("Response from roller results: " + sessionName);
+                    sprintf(uploadPopupMessage, "Uploaded %i/%i", trainingsID, spiffsLogic.getTrainingsMetas().getSize());
+                    uiManager.handle(true);
+                } else {
+                    sprintf(uploadPopupMessage, "Upload error: %i", httpResponseCode);
+                    uiManager.handle(true);
+                    Serial.printf("Error during upload request. Error code: %i abording upload process\n", httpResponseCode);
+                    succsess = false;
+                }
+            }
+            if(succsess) {
                 uploadedFiles.pushBack(trainingsMeta.fileName);
             } else {
-                sprintf(uploadPopupMessage, "Upload error: %i", httpResponseCode);
-                uiManager.handle(true);
-                Serial.printf("Error during upload request. Error code: %i abording upload process\n", httpResponseCode);
-                succsess = false;
                 break;
             }
+            trainingsID++;
         }
         if(succsess) {
             for (auto &&fileName : uploadedFiles) {
@@ -577,29 +610,41 @@ bool handleCloudUpload() {
         http.end();
         return true;
     } else if(millis() - cloudUploadStart > 5000) {
-        Serial.printf("Could not connect to %s!\n", wifiSSID);
+        Serial.printf("Could not connect to %s!\n", uploadWifiSSID);
         return true;
     }
     return false;
 }
 
 void tryInitUpload() {
-    Serial.printf("Connecting to %s...\n", wifiSSID);
-    WiFi.begin(wifiSSID, wifiPassword);
+    if(uploadWifiSSID.length() < 2) {
+        uiManager.popup("Setup on website first!");
+        return;
+    }
+    if(spiffsLogic.getTrainingsMetas().getSize() <= 1) {
+        uiManager.popup("Nothing to upload");
+        return;
+    }
+    Serial.printf("Connecting to %s...\n", uploadWifiSSID);
+    if(uploadWifiPassword.length() == 0) {
+        WiFi.begin(uploadWifiSSID);
+    } else {
+        WiFi.begin(uploadWifiSSID, uploadWifiPassword);
+    }
     cloudUploadStart = millis();
     cloudUploadRunning = true;
 }
 
-void setWiFiActive(bool active) {
-    if(active == wifiRunning) return;
-    if(!active) {
-        endWiFi();
-    }
-    if(active) {
-        beginWiFi();
-    }
-    wifiRunning = active;
-}
+// void setWiFiActive(bool active) {
+//     if(active == wifiRunning) return;
+//     if(!active) {
+//         endWiFi();
+//     }
+//     if(active) {
+//         beginWiFi();
+//     }
+//     wifiRunning = active;
+// }
 
 
 void handleWiFi() {
@@ -609,9 +654,13 @@ void handleWiFi() {
         ESP.restart();
     }
     if(restardWifiTime && millis() > restardWifiTime) {
-        endWiFi();
-        beginWiFi();
-        restardWifiTime = 0;
+        uiManager.popup("WiFi updated");
+        uiManager.handle(true);
+        delay(500);
+        uiManager.popup("Rebooting...");
+        uiManager.handle(true);
+        delay(500);
+        ESP.restart();
     }
     // start gun
     if(millis() > startGunTime) {
@@ -619,8 +668,8 @@ void handleWiFi() {
         startGunTime = INT32_MAX;
     }
     static bool cloudUploadAttempted = false;
-    if(!cloudUploadAttempted && cloudUploadEnabled->isChecked() && !wifiRunning && spiffsLogic.getTrainingsMetas().getSize() > 1) { // dont upload current session
-        if(millis() > 5000) {
+    if(uploadWifiSSID.length() >= 2 && !cloudUploadAttempted && cloudUploadEnabled->isChecked() && spiffsLogic.getTrainingsMetas().getSize() > 1) { // dont upload current session
+        if(millis() > 10000) {
             tryInitUpload();
             cloudUploadAttempted = true;
         }
@@ -628,9 +677,6 @@ void handleWiFi() {
     if(cloudUploadRunning) {
         cloudUploadRunning = !handleCloudUpload();
     }
-    if(!wifiRunning) return;
-    // dnsServer.processNextRequest();
-    // WiFiClient client = server.available();
     static size_t lastTriggerCount = 0;
     if(spiffsLogic.getActiveTraining().getTriggerCount() > lastTriggerCount) {
         resolveLiveRequests(spiffsLogic.getActiveTraining().getTriggerCount() - lastTriggerCount);

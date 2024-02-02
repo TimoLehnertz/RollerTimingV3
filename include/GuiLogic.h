@@ -64,8 +64,7 @@ void wiFiCredentialsChanged() {
   wifiPasswdText->setText(wifiPasswdStr);
 }
 
-void isDisplayChanged() {
-  // only on displays
+void initStationDisplay() {
   displayBrightnessInput->setHidden(!isDisplaySelect->getValue());
   displayTimeInput->setHidden(!isDisplaySelect->getValue());
   fontSizeSelect->setHidden(!isDisplaySelect->getValue());
@@ -74,7 +73,7 @@ void isDisplayChanged() {
   // only on lasers
   stationTypeSelect->setHidden(isDisplaySelect->getValue());
   minDelayInput->setHidden(isDisplaySelect->getValue());
-  wifiEnabledCB->setHidden(isDisplaySelect->getValue());
+  // wifiEnabledCB->setHidden(isDisplaySelect->getValue());
   // master slave
   if(isDisplaySelect->getValue()) { // now I am a display
     spiffsLogic.startNewSession();
@@ -86,10 +85,17 @@ void isDisplayChanged() {
     // reset SSID and password
     APSsid = APSSID_STATION_DEFAULT;
     APPassword = APPASSWORD_DEFAULT;
-    wiFiCredentialsChanged();
   }
+  wiFiCredentialsChanged();
   trainingsModeSelect->setHidden(!isDisplaySelect->getValue());
+}
+
+void isDisplayChanged() {
   writePreferences();
+  uiManager.popup("Rebooting...");
+  uiManager.handle(true);
+  delay(1000);
+  ESP.restart();
 }
 
 // void guiSetConnection(uint8_t address, int millimeters, uint8_t lq, uint8_t stationType) {
@@ -251,6 +257,15 @@ void startGunNowBtnPressed() {
 void startGun15sBtnPressed() {
   inPositionDelay->setValue(15);
   triggerStartGun();
+}
+
+void cloudUploadChanged() {
+  if(uploadWifiSSID.length() < 2) {
+    uiManager.popup("Setup on website first!");
+    cloudUploadEnabled->setChecked(false);
+    return;
+  }
+  writePreferences();
 }
 
 uint16_t stopWatchLap = 0;
@@ -444,15 +459,15 @@ void stationTypeChanged() {
   }
 }
 
-void wifiEnabledChanged() {
-  setWiFiActive(wifiEnabledCB->isChecked());
-  wifiSSIDText->setHidden(!wifiEnabledCB->isChecked());
-  wifiPasswdText->setHidden(!wifiEnabledCB->isChecked());
-  wifiIPText->setHidden(!wifiEnabledCB->isChecked());
-  wifiHelpText1->setHidden(!wifiEnabledCB->isChecked());
-  wifiHelpText2->setHidden(!wifiEnabledCB->isChecked());
-  wifiHelpText3->setHidden(!wifiEnabledCB->isChecked());
-}
+// void wifiEnabledChanged() {
+//   setWiFiActive(wifiEnabledCB->isChecked());
+//   wifiSSIDText->setHidden(!wifiEnabledCB->isChecked());
+//   wifiPasswdText->setHidden(!wifiEnabledCB->isChecked());
+//   wifiIPText->setHidden(!wifiEnabledCB->isChecked());
+//   wifiHelpText1->setHidden(!wifiEnabledCB->isChecked());
+//   wifiHelpText2->setHidden(!wifiEnabledCB->isChecked());
+//   wifiHelpText3->setHidden(!wifiEnabledCB->isChecked());
+// }
 
 void deleteAllSessionsPressed() {
   spiffsLogic.deleteAllSessions();
@@ -473,7 +488,7 @@ void beginLCDDisplay() {
   hzText = new NumberField("Loop", "Hz", 1, 0, 100000000, 0);
   hzText->setEditable(false);
   displayBrightnessInput = new NumberField("Brightness", "%", 1, 5, 100, 0, 30, simpleInputChanged);
-  displayTimeInput = new NumberField("Lap dispplay", "s", 0.5, 0.5, 100, 1, 3, simpleInputChanged);
+  displayTimeInput = new NumberField("Display time", "s", 0.5, 0.5, 100, 1, 3, simpleInputChanged);
   freeHeapText = new NumberField("Free", "b", 1, 0, UINT16_MAX, 0);
   freeHeapText->setEditable(false);
   heapSizeText = new NumberField("Size", "b", 1, 0, UINT16_MAX, 0);
@@ -490,7 +505,7 @@ void beginLCDDisplay() {
   stationTypeSelect->addOption("Only finish", "Finish"); // STATION_TRIGGER_TYPE_FINISH 3
   stationTypeChanged();
 
-  lapDisplayTypeSelect = new Select("Lap Display");
+  lapDisplayTypeSelect = new Select("Lap display");
   lapDisplayTypeSelect->addOption("Lap time", "Time");
   lapDisplayTypeSelect->addOption("Avg. lap speed", "Speed");
 
@@ -508,8 +523,6 @@ void beginLCDDisplay() {
   wifiHelpText1 = new TextItem("Troubleshooting:", true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
   wifiHelpText2 = new TextItem("Double check that https", true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
   wifiHelpText3 = new TextItem("is not used. Use http!", true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
-
-
 
   inPositionDelay = new NumberField("Delay", "s", 1, 0, UINT16_MAX, 0, 0);
 
@@ -534,9 +547,11 @@ void beginLCDDisplay() {
   stopBtn = new Button("Stop", stopBtnPressed);
   startFinishBtn = new Button("Start/Finish", startFinishBtnPressed);
   
-  wifiEnabledCB = new CheckBox("WiFi Activated", false, false, wifiEnabledChanged);
+  // wifiEnabledCB = new CheckBox("WiFi Activated", false, false, wifiEnabledChanged);
 
-  cloudUploadEnabled = new CheckBox("Cloud upload", false, false, writePreferences);
+  cloudUploadEnabled = new CheckBox("Cloud upload", false, false, cloudUploadChanged);
+
+  Button* uploadNowBtn = new Button("Upload now", tryInitUpload);
 
   fontSizeSelect = new Select("Display font size", writePreferences);
   fontSizeSelect->addOption("Large", "L");
@@ -632,7 +647,7 @@ void beginLCDDisplay() {
   // connectionsMenuMaster->addItem(new TextItem("Connections"));
 
   wifiMenu->addItem(new TextItem("WiFi", false));
-  wifiMenu->addItem(wifiEnabledCB);
+  // wifiMenu->addItem(wifiEnabledCB);
   wifiMenu->addItem(wifiSSIDText);
   wifiMenu->addItem(wifiPasswdText);
   wifiMenu->addItem(wifiIPText);
@@ -640,6 +655,7 @@ void beginLCDDisplay() {
   wifiMenu->addItem(wifiHelpText2);
   wifiMenu->addItem(wifiHelpText3);
   wifiMenu->addItem(cloudUploadEnabled);
+  wifiMenu->addItem(uploadNowBtn);
 
   frameSections[0] = FrameSection(drawSetup, setupMenu);
   frameSections[1] = FrameSection(drawStartGun, startMenu);
@@ -656,7 +672,7 @@ void beginLCDDisplay() {
   //   connectionItemsTexts[i] = nullptr;
   // }
   showDebugChanged();
-  wifiEnabledChanged();
+  // wifiEnabledChanged();
 }
 
 void beginLEDDisplay() {
@@ -756,18 +772,13 @@ void handleLEDS() {
     }
   } else {
     for (int i = 0; i < min(double(getLEDCount()), millis() / 150.0 - 7); i++) {
-      if(wifiRunning) {
-          double value = (sin(((millis() + timeSyncOffset) - i * 750) / 1000.0) + 1.0) / 2.0;
-          leds[i] = CRGB(20 * value, 0, 70 * value);
+      if(isTriggered()) {
+        leds[i] = CRGB::White;
+      } else if(isLaserTimeout()) {
+        leds[i] = CRGB::Red;
       } else {
-        if(isTriggered()) {
-          leds[i] = CRGB::White;
-        } else if(isLaserTimeout()) {
-          leds[i] = CRGB::Red;
-        } else {
-          double value = (sin(((millis() + timeSyncOffset) - i * 750) / 1000.0) + 1.0) / 2.0;
-          leds[i] = CRGB(60 * value, 0, 40 * value);
-        }
+        double value = (sin(((millis() + timeSyncOffset) - i * 750) / 1000.0) + 1.0) / 2.0;
+        leds[i] = CRGB(60 * value, 0, 40 * value);
       }
     }
   }

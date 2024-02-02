@@ -19,7 +19,7 @@ typedef int64_t timeUs_t;
 
 #define MAX_TRIGGER_COUNT_IN_CACHE 52 // 52 to show up in live view as 50 laps
 
-#define TRIGGERS_PER_PAGE 5
+#define TRIGGERS_PER_PAGE 25
 
 struct Trigger {
   timeMs_t timeMs; // overflows after 25 days
@@ -424,6 +424,17 @@ public:
     startNewSession();
     running = true;
     return true;
+  }
+
+  bool isVersionMatch() {
+    File versionFile = SPIFFS.open("/spiffs-version");
+    if(!versionFile) {
+      versionFile.close();
+      return false;
+    }
+    String spiffsVersion = versionFile.readString();
+    versionFile.close();
+    return spiffsVersion == VERSION;
   }
 
   size_t getBytesTotal() {
