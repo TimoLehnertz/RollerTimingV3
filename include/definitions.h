@@ -1,4 +1,4 @@
-#define VERSION "2.0"
+#define VERSION "2.1"
 
 /**
  * All IO pin definitions

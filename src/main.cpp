@@ -2,7 +2,7 @@
  * @file main.cpp
  * @author Timo Lehnertz
  * @brief Main class for the Roller timing sytem
- * @version 2.0
+ * @version 2.1
  * @date 2023-07-10
  * 
  * @copyright Copyright (c) 2024

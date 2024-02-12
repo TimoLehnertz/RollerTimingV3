@@ -256,7 +256,7 @@ void handleUpdatePage(AsyncWebServerRequest* request) {
             <div class="container">
                 <div class="content">
                     <div class="error" id="error-message"></div>
-                    <h1>Roller timing version 2.0</h1>
+                    <h1>Roller timing version 2.1</h1>
                     <br>
                     <p><b>Attention</b> Updating the firmware will erase <b>all</b> your settings and saved Trainings sessions. Only proceed if that is okay!</p>
                     <p>Follow all of the steps below closely in the correct order</p>
@@ -287,7 +287,7 @@ void handleUpdatePage(AsyncWebServerRequest* request) {
                     <br><hr><br>
                     <p>
                         Roller timing<br>
-                        Software version: <span style="color: #24240f">2.0</span><br>
+                        Software version: <span style="color: #24240f">2.1</span><br>
                         Roller results - From skaters for skaters<br>
                         by Timo Lehnertz
                     </p>
