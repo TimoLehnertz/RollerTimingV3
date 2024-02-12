@@ -73,7 +73,6 @@ void slaveTrigger(timeMs_t atMs, uint8_t triggerType, uint16_t millimeters) {
 }
 
 void radioReceived(const uint8_t* byteArr, size_t size) {
-    // Serial.println("radioReceived");
     if(isDisplaySelect->getValue()) { // master
         if(size == sizeof(Trigger)) {
             if(lastTimeSync == 0) {
@@ -103,10 +102,10 @@ void radioReceived(const uint8_t* byteArr, size_t size) {
                 slaveTriggers.removeIndex(0);
             }
         } else if(size == sizeof(uint32_t)) { // time sync
-            if(slaveTriggers.getSize() > 0 && timeSynced) {
-                Serial.println("Skipped time sync");
-                return; // only allow time syncs when there are no triggers floating arround
-            }
+            // if(slaveTriggers.getSize() > 0 && timeSynced) {
+            //     Serial.println("Skipped time sync");
+            //     return; // only allow time syncs when there are no triggers floating arround 
+            // }
             for (auto &&slaveTrigger : slaveTriggers) { // restoring to local time
                 slaveTrigger.timeMs -= timeSyncOffset;
             }
@@ -121,9 +120,9 @@ void radioReceived(const uint8_t* byteArr, size_t size) {
                 playSoundNewConnection();
                 slaveTriggers.clear();
             }
-            for (auto &&slaveTrigger : slaveTriggers) { // applying master time
-                slaveTrigger.timeMs += timeSyncOffset;
-            }
+            // for (auto &&slaveTrigger : slaveTriggers) { // applying master time
+            //     slaveTrigger.timeMs += timeSyncOffset;
+            // }
             timeSynced = true;
 
             lastTimeSyncMs = millis();

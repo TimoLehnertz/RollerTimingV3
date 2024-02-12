@@ -84,7 +84,7 @@ void handleRadioReceive() {
     int error = radio.readData(byteArr, 255);
     size_t size = radio.getPacketLength();
     // Serial.printf("received %i bytes\n", size);
-    if(size > 0) {
+    if(size > 0 && size) {
       if(error == RADIOLIB_ERR_NONE) {
         if(millis() > receiveTimeout) {
           Serial.printf("Received (len=%i)\n", size);

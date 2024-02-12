@@ -717,6 +717,7 @@ bool isLaserTimeout() {
 }
 
 void handleLEDS() {
+  float stationDisplayBrightness = 1;
   static float lastDisplayBrightness = 0.3;
   if(millis() - lastLEDUpdate < 1000.0 / 30.0) return;
   lastLEDUpdate = millis();
@@ -771,15 +772,29 @@ void handleLEDS() {
       matrix.print(lapsStr, 0, 0, CRGB::Yellow, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
     }
   } else {
+    static size_t ledState = 0;
+    size_t prevLedState = ledState;
+    static timeMs_t lastLEDStateChange = 0;
     for (int i = 0; i < min(double(getLEDCount()), millis() / 150.0 - 7); i++) {
       if(isTriggered()) {
+        ledState = 1;
         leds[i] = CRGB::White;
       } else if(isLaserTimeout()) {
+        ledState = 2;
         leds[i] = CRGB::Red;
       } else {
+        ledState = 3;
         double value = (sin(((millis() + timeSyncOffset) - i * 750) / 1000.0) + 1.0) / 2.0;
         leds[i] = CRGB(60 * value, 0, 40 * value);
       }
+    }
+    if(prevLedState != ledState) {
+      lastLEDStateChange = millis();
+    }
+    if(millis() - lastLEDStateChange < 3000) {
+      stationDisplayBrightness = 1;
+    } else {
+      stationDisplayBrightness = 0.001;
     }
   }
 
@@ -791,7 +806,8 @@ void handleLEDS() {
   // handle brightness
   float displayCurrent = predictLEDCurrentDraw();
   displayCurrentText->setValue(displayCurrent);
-  float displayBrightness = MAX_CONTINUOUS_AMPS / displayCurrent * (displayBrightnessInput->getValue() / 100.0 * 255.0);
+  const float inputBrightness = isDisplaySelect->getValue() ? displayBrightnessInput->getValue() / 100.0 * 255.0 : stationDisplayBrightness * 255.0;
+  float displayBrightness = MAX_CONTINUOUS_AMPS / displayCurrent * inputBrightness;
   if(displayBrightness > 150) displayBrightness = 150;
   displayCurrentAfterScaleText->setValue(displayCurrent * (displayBrightness / 255.0));
   float brightnessLPF = 0.05;
