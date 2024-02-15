@@ -72,6 +72,10 @@ void slaveTrigger(timeMs_t atMs, uint8_t triggerType, uint16_t millimeters) {
     Serial.printf("Slave trigger #%i, triggerType: %i, millimeters: %i\n", slaveTriggers.getSize(), triggerType, millimeters);
 }
 
+bool isTriggerValid(Trigger t) {
+    return t.triggerType <= STATION_TRIGGER_TYPE_PARCOUR_FINISH;
+}
+
 void radioReceived(const uint8_t* byteArr, size_t size) {
     if(isDisplaySelect->getValue()) { // master
         if(size == sizeof(Trigger)) {
@@ -79,6 +83,10 @@ void radioReceived(const uint8_t* byteArr, size_t size) {
                 return; // cant be synced yet
             }
             Trigger trigger = *((Trigger*) byteArr);
+            if(!isTriggerValid(trigger)) {
+                uiManager.popup("Station has newer version! Please update all equipment to the newest version!");
+                return;
+            }
             timeMs_t timeVariance = abs(trigger.timeMs - timeMs_t(millis()));
             if(timeVariance < 15000) {
                 if(!spiffsLogic.triggerInCache(trigger)) {

@@ -103,6 +103,8 @@ CheckBox* cloudUploadEnabled;
 Select* isDisplaySelect;
 Select* fontSizeSelect;
 
+Button* uploadNowBtn;
+
 CheckBox* wifiEnabledCB;
 
 Button* startBtn;

@@ -12,7 +12,7 @@ typedef int64_t timeUs_t;
 #define MAX_ENTER_TIME_MS 500
 #define MAX_MENU_ITEM_COUT 50
 
-#define MAX_SELECT_OPTIONS 5
+#define MAX_SELECT_OPTIONS 6
 
 typedef void (*ChangeListener)();
 

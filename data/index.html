@@ -209,7 +209,7 @@
     <div class="container">
         <div class="content">
             <div class="error" id="error-message"></div>
-            <h1>Roller timing 2.1</h1>
+            <h1>Roller timing 3.0</h1>
             <hr>
             <br>
             <div class="flex">
@@ -283,6 +283,15 @@
                         <option value="1">Small</option>
                     </select>
                 </div>
+                <br>
+                <div class="flex space-arround">
+                    <label for="lapDisplayType">Lap displaytype</label>
+                    <select id="lapDisplayType" onchange="updateSettings()">
+                        <option value="0">Normal</option>
+                        <option value="1">Speed</option>
+                        <option value="2">Parcour</option>
+                    </select>
+                </div>
                 <hr>
                 <form method="GET" action="/updateCredentials">
                     <h3>Wifi settings</h3>
@@ -349,7 +358,7 @@
             <br>
             <p>
                 Roller timing<br>
-                Software version: <span style="color: #24240f">2.1</span><br>
+                Software version: <span style="color: #24240f">3.0</span><br>
                 Roller results - From skaters for skaters<br>
                 by Timo Lehnertz
             </p>
@@ -363,7 +372,6 @@ let debug = false;
 
 let viewerFileName = 'live'; // 'live' = live viewer, else static viewer
 let runningSessionName = null; // not known yet
-let viewerActive = false;
 
 let liveSession = [];
 let liveCallback = undefined;
@@ -383,14 +391,13 @@ function toggle(viewer) {
     }
     document.getElementById(`${viewer}Btn`).classList.add('active');
     if(viewer === 'viewer') {
-        startViewer();
-    } else {
-        endViewer();
+        fetchViewer();
     }
     localStorage.setItem("page", viewer);
 }
 
 const savedPage = localStorage.getItem("page");
+console.log('savedPage:', savedPage)
 if(savedPage) {
     toggle(savedPage);
 } else {
@@ -429,7 +436,8 @@ function updateSettings() {
     const displayBirghtness = document.getElementById("displayBrightness").value;
     const displayTime = document.getElementById("displayTime").value;
     const fontSize = document.getElementById("fontSize").value;
-    xhr.open('GET', `/settings?displayBrightness=${displayBirghtness}&displayTime=${displayTime}&fontSize=${fontSize}`, true);
+    const lapDisplayType = document.getElementById("lapDisplayType").value;
+    xhr.open('GET', `/settings?displayBrightness=${displayBirghtness}&displayTime=${displayTime}&fontSize=${fontSize}&lapDisplayType=${lapDisplayType}`, true);
 
     // Set up a callback function to handle the response
     xhr.onreadystatechange = function () {
@@ -525,6 +533,9 @@ function loadSessions() {
                     }
                     if(json.fontSize) {
                         document.getElementById("fontSize").value = json.fontSize;
+                    }
+                    if(json.lapDisplayType) {
+                        document.getElementById("lapDisplayType").value = json.lapDisplayType;
                     }
                     if(json.username) {
                         document.getElementById("username").value = json.username;
@@ -645,7 +656,11 @@ const STATION_TRIGGER_TYPE_START_FINISH = 0;
 const STATION_TRIGGER_TYPE_START = 1;
 const STATION_TRIGGER_TYPE_CHECKPOINT = 2;
 const STATION_TRIGGER_TYPE_FINISH = 3;
-const STATION_TRIGGER_TYPE_NONE = 4;
+const STATION_TRIGGER_TYPE_PARCOUR_START = 4;
+const STATION_TRIGGER_TYPE_PARCOUR_FINISH = 5;
+const STATION_TRIGGER_TYPE_NONE = 6;
+
+const MAX_PARCOUR_TIMES = 5;
 
 class SplitLap {
     constructor(distance, splitTimeMs, splitIndex, isFinish) {
@@ -673,15 +688,16 @@ function sessionToLaps(session) {
     let splitLaps = [];
     let lapStarted = false;
     let lapStart = 0;
-    let lastTrigger = 0;
+    let lastPass = 0;
     let lastMillimeters = -1;
     let currentCheckpoint = 0;
     let finishPending = false;
     let lapCount = 0;
+    const parcourStarts = [];
     for (const trigger of session) {
-        if(lapStarted && (trigger.type === STATION_TRIGGER_TYPE_FINISH || trigger.type === STATION_TRIGGER_TYPE_START_FINISH)) {
+        if(lapStarted && (trigger.type == STATION_TRIGGER_TYPE_FINISH || trigger.type == STATION_TRIGGER_TYPE_START_FINISH)) {
             if(splitLaps.length > 0) {
-                splitLaps.push(new SplitLap(trigger.mm, trigger.ms - lastTrigger, currentCheckpoint++, true));
+                splitLaps.push(new SplitLap(trigger.mm, trigger.ms - lastPass, currentCheckpoint++, true));
             }
             laps.push(new Lap(lapCount++, trigger.ms - lapStart, splitLaps));
             splitLaps = [];
@@ -699,11 +715,28 @@ function sessionToLaps(session) {
         }
         if(lapStarted && trigger.type == STATION_TRIGGER_TYPE_CHECKPOINT) {
             if(trigger.mm <= lastMillimeters) continue;
-            splitLaps.push(new SplitLap(trigger.mm, trigger.ms - lastTrigger, currentCheckpoint++, false));
+            splitLaps.push(new SplitLap(trigger.mm, trigger.ms - lastPass, currentCheckpoint++, false));
             lastMillimeters = trigger.mm;
             finishPending = true;
         }
-        lastTrigger = trigger.ms;
+        if(trigger.type == STATION_TRIGGER_TYPE_START || trigger.type == STATION_TRIGGER_TYPE_START_FINISH) {
+            lastPass = trigger.ms;
+        }
+        /**
+         * Parcour
+         */
+        if(trigger.type == STATION_TRIGGER_TYPE_PARCOUR_START) {
+            if(parcourStarts.length < MAX_PARCOUR_TIMES) {
+                parcourStarts.push(trigger.ms);
+            }
+        }
+        if(trigger.type == STATION_TRIGGER_TYPE_PARCOUR_FINISH) {
+            if(parcourStarts.length > 0) {
+                const startTime = parcourStarts[0];
+                parcourStarts.splice(0, 1);
+                laps.push(new Lap(lapCount++, trigger.ms - startTime, []));
+            }
+        }
     }
     if(splitLaps.length > 0 || finishPending) {
         let latsLapIndex = 0;
@@ -751,16 +784,8 @@ function downloadCSV(session, sessionName) {
     a.click();
 }
 
-function startViewer() {
-    if(viewerFileName === 'live') { // live
-        viewerActive = true;
-    } else {
-        viewerActive = false;
-    }
-    fetchViewer();
-}
-
 function fetchViewer(page = 0) {
+    console.log('fetching viewer', viewerFileName)
     if(viewerFileName === 'live') {
         fetchLive((succsess, session) => {
             if(succsess && viewerFileName === 'live') { // check if live view is still shown
@@ -771,19 +796,19 @@ function fetchViewer(page = 0) {
         fetchSession(viewerFileName, page, (succsess, session) => {
             if(succsess) {
                 displayLaps(sessionToLaps(session.triggers), viewerFileName, page, session.maxPages);
+            } else {
+                logError('Error while fetching viewer');
             }
         });
     }
 }
 
-function endViewer() {
-    viewerActive = false;
-}
-
 function viewSession(fileName) {
     if(fileName === runningSessionName) {
+        console.log('starting live viewer');
         viewerFileName = 'live';
     } else {
+        console.log('viewing', fileName)
         viewerFileName = fileName;
     }
     toggle('viewer');
@@ -849,7 +874,7 @@ function displayLaps(laps, fileName, page = undefined, numPages = undefined) {
         if(page > 0) {
             viewer.innerHTML += `<button class="download-btn" style="margin-right: 1rem;" onclick="fetchViewer(${page - 1})"><</button>`
         }
-        if(page <= numPages - 1) {
+        if(page < numPages - 1) {
             viewer.innerHTML += `<button class="download-btn" onclick="fetchViewer(${page + 1})">></button>`
         }
     }

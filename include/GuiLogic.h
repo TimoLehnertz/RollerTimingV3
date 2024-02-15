@@ -70,6 +70,7 @@ void initStationDisplay() {
   fontSizeSelect->setHidden(!isDisplaySelect->getValue());
   lapDisplayTypeSelect->setHidden(!isDisplaySelect->getValue());
   cloudUploadEnabled->setHidden(!isDisplaySelect->getValue());
+  uploadNowBtn->setHidden(!isDisplaySelect->getValue());
   // only on lasers
   stationTypeSelect->setHidden(isDisplaySelect->getValue());
   minDelayInput->setHidden(isDisplaySelect->getValue());
@@ -469,6 +470,10 @@ void stationTypeChanged() {
 //   wifiHelpText3->setHidden(!wifiEnabledCB->isChecked());
 // }
 
+void lapDisplayTypeChanged() {
+  writePreferences();
+}
+
 void deleteAllSessionsPressed() {
   spiffsLogic.deleteAllSessions();
 }
@@ -503,12 +508,13 @@ void beginLCDDisplay() {
   stationTypeSelect->addOption("Only start", "Start"); // STATION_TRIGGER_TYPE_START 1
   stationTypeSelect->addOption("checkpoint", "Checkpoint"); // STATION_TRIGGER_TYPE_CHECKPOINT 2
   stationTypeSelect->addOption("Only finish", "Finish"); // STATION_TRIGGER_TYPE_FINISH 3
+  stationTypeSelect->addOption("Parcour start", "Parc. start"); // STATION_TRIGGER_TYPE_PARCOUR_START 4
+  stationTypeSelect->addOption("Parcour finish", "Parc. finish"); // STATION_TRIGGER_TYPE_PARCOUR_FINISH 5
   stationTypeChanged();
 
-  lapDisplayTypeSelect = new Select("Lap display");
+  lapDisplayTypeSelect = new Select("Lap display", lapDisplayTypeChanged);
   lapDisplayTypeSelect->addOption("Lap time", "Time");
   lapDisplayTypeSelect->addOption("Avg. lap speed", "Speed");
-  lapDisplayTypeSelect->addOption("Parcour mode", "Parcour");
 
   laserValue = new NumberField("Analog laser", "", 1, 0, UINT16_MAX, 0);
   isDisplaySelect = new Select("Station type", isDisplayChanged);
@@ -552,7 +558,7 @@ void beginLCDDisplay() {
 
   cloudUploadEnabled = new CheckBox("Cloud upload", false, false, cloudUploadChanged);
 
-  Button* uploadNowBtn = new Button("Upload now", tryInitUpload);
+  uploadNowBtn = new Button("Upload now", tryInitUpload);
 
   fontSizeSelect = new Select("Display font size", writePreferences);
   fontSizeSelect->addOption("Large", "L");
@@ -728,7 +734,9 @@ void handleLEDS() {
     if(millis() < 4000) { // intro
       matrix.print("GO SKATE!", 1, 1, CRGB::White, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
     } else { // display lap
-      if(lapDisplayTypeSelect->getValue() == 0) { // lap time
+      if(session.isLastTriggerParcour()) {
+        ledDisplayTime(session.getLastParcourTime(), true);
+      } else if(lapDisplayTypeSelect->getValue() == 0) { // lap time
         if(session.getTriggerCount() == 0) {
           ledDisplayTime(0, true);
         } else {
@@ -743,7 +751,7 @@ void handleLEDS() {
             ledDisplayTime(time, true);
           }
         }
-      } else { // lap speed
+      } else if(lapDisplayTypeSelect->getValue() == 1) { // lap speed
         if(session.getTriggerCount() == 0) {
           ledDisplayTime(0, true);
         } else {
@@ -761,16 +769,26 @@ void handleLEDS() {
           }
         }
       }
-      // Lap count
-      char lapsStr[3];
-      size_t laps = session.getLapsCount();
-      if(fontSizeSelect->getValue() == 0) { // large
-        laps = laps % 10;
+      if(session.isLastTriggerParcour()) { // parcour mode
+        char str[3];
+        size_t startsMinusFinishes = session.getParcourStartsMinusFinishes();
+        if(startsMinusFinishes > MAX_PARCOUR_TIMES) {
+          startsMinusFinishes = MAX_PARCOUR_TIMES;
+        }
+        sprintf(str, "%i", startsMinusFinishes);
+        matrix.print(str, 0, 0, CRGB::Yellow, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
       } else {
-        laps = laps % 100;
+        // Lap count
+        char lapsStr[3];
+        size_t laps = session.getLapsCount();
+        if(fontSizeSelect->getValue() == 0) { // large
+          laps = laps % 10;
+        } else {
+          laps = laps % 100;
+        }
+        sprintf(lapsStr, "%i", laps);
+        matrix.print(lapsStr, 0, 0, CRGB::Yellow, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
       }
-      sprintf(lapsStr, "%i", laps);
-      matrix.print(lapsStr, 0, 0, CRGB::Yellow, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
     }
   } else {
     static size_t ledState = 0;
@@ -779,7 +797,7 @@ void handleLEDS() {
     for (int i = 0; i < min(double(getLEDCount()), millis() / 150.0 - 7); i++) {
       if(isTriggered()) {
         ledState = 1;
-        leds[i] = CRGB::White;
+        leds[i] = CRGB(0x555555);
       } else if(isLaserTimeout()) {
         ledState = 2;
         leds[i] = CRGB::Red;

@@ -256,7 +256,7 @@ void handleUpdatePage(AsyncWebServerRequest* request) {
             <div class="container">
                 <div class="content">
                     <div class="error" id="error-message"></div>
-                    <h1>Roller timing version 2.1</h1>
+                    <h1>Roller timing version 3.0</h1>
                     <br>
                     <p><b>Attention</b> Updating the firmware will erase <b>all</b> your settings and saved Trainings sessions. Only proceed if that is okay!</p>
                     <p>Follow all of the steps below closely in the correct order</p>
@@ -287,7 +287,7 @@ void handleUpdatePage(AsyncWebServerRequest* request) {
                     <br><hr><br>
                     <p>
                         Roller timing<br>
-                        Software version: <span style="color: #24240f">2.1</span><br>
+                        Software version: <span style="color: #24240f">3.0</span><br>
                         Roller results - From skaters for skaters<br>
                         by Timo Lehnertz
                     </p>
@@ -344,6 +344,12 @@ void handleSettings(AsyncWebServerRequest* request) {
     if(request->hasParam("wifiPassword")) {
         uploadWifiPassword = request->getParam("wifiPassword")->value();
     }
+    if(request->hasParam("lapDisplayType")) {
+        const int lapDisplayType = request->getParam("lapDisplayType")->value().toInt();
+        if(lapDisplayType >= 0 && lapDisplayType <= 1) {
+            lapDisplayTypeSelect->setValue(lapDisplayType);
+        }
+    }
     writePreferences();
     request->send(200, "text/html", "OK");
 }
@@ -358,6 +364,8 @@ void handleSessionsJson(AsyncWebServerRequest* request) {
     builder.addValue(float(displayBrightnessInput->getValue()));
     builder.addKey("fontSize");
     builder.addValue(int(fontSizeSelect->getValue()));
+    builder.addKey("lapDisplayType");
+    builder.addValue(lapDisplayTypeSelect->getValue());
     builder.addKey("username");
     builder.addValue(username);
     builder.addKey("wifiSSID");

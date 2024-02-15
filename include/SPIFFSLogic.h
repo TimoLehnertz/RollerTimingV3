@@ -14,7 +14,9 @@ typedef int64_t timeUs_t;
 #define STATION_TRIGGER_TYPE_START 1
 #define STATION_TRIGGER_TYPE_CHECKPOINT 2
 #define STATION_TRIGGER_TYPE_FINISH 3
-#define STATION_TRIGGER_TYPE_NONE 4
+#define STATION_TRIGGER_TYPE_PARCOUR_START 4
+#define STATION_TRIGGER_TYPE_PARCOUR_FINISH 5
+#define STATION_TRIGGER_TYPE_NONE 6
 #define STATION_TRIGGER_TYPE_MAX STATION_TRIGGER_TYPE_NONE
 
 #define MAX_TRIGGER_COUNT_IN_CACHE 52 // 52 to show up in live view as 50 laps
@@ -59,6 +61,8 @@ struct Trigger {
  */
 #define TRAININGS_TYPE_NORMAL_SUB_LAPS 1
 
+#define MAX_PARCOUR_TIMES 5
+
 bool sortCompareTriggers(const Trigger& a, const Trigger& b) {
   return a.timeMs < b.timeMs;
 }
@@ -84,7 +88,8 @@ private:
   bool lapStarted;
   size_t triggerCount;
   DoubleLinkedList<Trigger> cache;
-  int startsMinusFinishes;
+  DoubleLinkedList<timeMs_t> parcourTimes;
+  DoubleLinkedList<timeMs_t> parcourStarts;
 
 public:
   TrainingsSession() {
@@ -96,7 +101,8 @@ public:
     this->lapStarted = false;
     this->triggerCount = 0;
     this->cache = DoubleLinkedList<Trigger>();
-    this->startsMinusFinishes = 0;
+    this->parcourTimes = DoubleLinkedList<timeMs_t>();
+    this->parcourStarts = DoubleLinkedList<timeMs_t>();
   }
 
   TrainingsSession(String fileName, bool write) {
@@ -108,7 +114,8 @@ public:
     this->lapStarted = false;
     this->triggerCount = 0;
     this->cache = DoubleLinkedList<Trigger>();
-    this->startsMinusFinishes = 0;
+    this->parcourTimes = DoubleLinkedList<timeMs_t>();
+    this->parcourStarts = DoubleLinkedList<timeMs_t>();
   }
 
   bool fileExists() {
@@ -134,17 +141,26 @@ public:
     if(lapStarted && (trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH || trigger.triggerType == STATION_TRIGGER_TYPE_FINISH)) {
       laps++;
     }
-    if(trigger.triggerType == STATION_TRIGGER_TYPE_START) {
-      startsMinusFinishes++;
+    if(trigger.triggerType == STATION_TRIGGER_TYPE_PARCOUR_START) {
+      if(parcourStarts.getSize() < MAX_PARCOUR_TIMES) {
+        parcourStarts.pushBack(trigger.timeMs);
+      }
     }
     if(trigger.triggerType == STATION_TRIGGER_TYPE_START || trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
       lapStarted = true;
     }
+    if(trigger.triggerType == STATION_TRIGGER_TYPE_PARCOUR_FINISH) {
+      if(parcourStarts.getSize() > 0) {
+        timeMs_t startTime = parcourStarts.getFirst();
+        parcourStarts.removeIndex(0);
+        parcourTimes.pushBack(trigger.timeMs - startTime);
+        while(parcourTimes.getSize() > 5) {
+          parcourTimes.removeIndex(0);
+        }
+      }
+    }
     if(trigger.triggerType == STATION_TRIGGER_TYPE_FINISH) {
       lapStarted = false;
-      if(startsMinusFinishes > 0) {
-        startsMinusFinishes--;
-      }
     }
     triggerCount++;
   }
@@ -330,6 +346,30 @@ public:
 
   size_t getLapsCount() {
     return laps;
+  }
+
+  void resetParcourTimes() {
+    parcourStarts.clear();
+    parcourTimes.clear();
+  }
+
+  bool isLastTriggerParcour() {
+    if(cache.getSize() == 0) {
+      return false;
+    }
+    const int lastTriggerType = cache.getLast().triggerType;
+    return lastTriggerType == STATION_TRIGGER_TYPE_PARCOUR_START || lastTriggerType == STATION_TRIGGER_TYPE_PARCOUR_FINISH;
+  }
+
+  timeMs_t getLastParcourTime() {
+    if(parcourTimes.getSize() == 0) {
+      return 0;
+    }
+    return parcourTimes.getLast();
+  }
+
+  int getParcourStartsMinusFinishes() {
+    return parcourStarts.getSize();
   }
 
   String getFileName() {

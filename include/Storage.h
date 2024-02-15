@@ -15,7 +15,7 @@
 #include <GuiLogic.h>
 #include <WiFiLogic.h>
 
-#define STORAGE_CHECK 20001 // version + garbaage
+#define STORAGE_CHECK 20004 // count up by one if any changes were made in this file
 
 Preferences preferences;
 
@@ -39,6 +39,7 @@ void writePreferences() {
   // preferences.putBool("wifiOn", wifiEnabledCB->isChecked());
   preferences.putString("APSsid", APSsid);
   preferences.putString("APPassword", APPassword);
+  preferences.putInt("lapDisplayType", lapDisplayTypeSelect->getValue());
 }
 
 void readPreferences() {
@@ -55,6 +56,7 @@ void readPreferences() {
   uploadWifiSSID = preferences.getString("wifiSSID");
   uploadWifiPassword = preferences.getString("wifiPassword");
   username = preferences.getString("username");
+  lapDisplayTypeSelect->setValue(preferences.getInt("lapDisplayType"));
   // if(isDisplaySelect->getValue()) { // only activate wifi if this is a display
   //   wifiEnabledCB->setChecked(preferences.getBool("wifiOn"), false);
   //   wifiEnabledChanged();
@@ -70,10 +72,10 @@ void readPreferences() {
  * @note Blocking for more than 100ms 
  */
 void resetAllSettings() {
-  distFromStartInput->setValue(10);
-  minDelayInput->setValue(5);
-  displayBrightnessInput->setValue(30);
-  displayTimeInput->setValue(3);
+  distFromStartInput->setValue(30);
+  minDelayInput->setValue(1);
+  displayBrightnessInput->setValue(10);
+  displayTimeInput->setValue(7);
   trainingsModeSelect->setValue(TRAININGS_MODE_NORMAL);
   stationTypeSelect->setValue(STATION_TRIGGER_TYPE_START_FINISH);
   cloudUploadEnabled->setChecked(false);
@@ -83,6 +85,7 @@ void resetAllSettings() {
   username = "";
   APSsid = APSSID_DISPLAY_DEFAULT;
   APPassword = APPASSWORD_DEFAULT;
+  lapDisplayTypeSelect->setValue(0); // lap time mode
   // wifiEnabledCB->setChecked(true);
   // determine if this is a display or laser by checking if PIN_LASER is floating
   // u8_t floatingCount = 0;
@@ -103,8 +106,10 @@ void resetAllSettings() {
 void factoryReset() {
   Serial.println("Resetting");
   uiManager.handle(true);
+  int isDisplay = preferences.getInt("isDisplay");
   resetAllSettings();
   writePreferences();
+  preferences.putInt("isDisplay", isDisplay);
   uiManager.popup("Factory reset done");
   uiManager.handle(true);
   delay(1000);
