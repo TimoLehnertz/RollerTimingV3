@@ -84,6 +84,7 @@ private:
   bool lapStarted;
   size_t triggerCount;
   DoubleLinkedList<Trigger> cache;
+  int startsMinusFinishes;
 
 public:
   TrainingsSession() {
@@ -95,6 +96,7 @@ public:
     this->lapStarted = false;
     this->triggerCount = 0;
     this->cache = DoubleLinkedList<Trigger>();
+    this->startsMinusFinishes = 0;
   }
 
   TrainingsSession(String fileName, bool write) {
@@ -106,6 +108,7 @@ public:
     this->lapStarted = false;
     this->triggerCount = 0;
     this->cache = DoubleLinkedList<Trigger>();
+    this->startsMinusFinishes = 0;
   }
 
   bool fileExists() {
@@ -131,11 +134,17 @@ public:
     if(lapStarted && (trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH || trigger.triggerType == STATION_TRIGGER_TYPE_FINISH)) {
       laps++;
     }
+    if(trigger.triggerType == STATION_TRIGGER_TYPE_START) {
+      startsMinusFinishes++;
+    }
     if(trigger.triggerType == STATION_TRIGGER_TYPE_START || trigger.triggerType == STATION_TRIGGER_TYPE_START_FINISH) {
       lapStarted = true;
     }
     if(trigger.triggerType == STATION_TRIGGER_TYPE_FINISH) {
       lapStarted = false;
+      if(startsMinusFinishes > 0) {
+        startsMinusFinishes--;
+      }
     }
     triggerCount++;
   }

@@ -508,6 +508,7 @@ void beginLCDDisplay() {
   lapDisplayTypeSelect = new Select("Lap display");
   lapDisplayTypeSelect->addOption("Lap time", "Time");
   lapDisplayTypeSelect->addOption("Avg. lap speed", "Speed");
+  lapDisplayTypeSelect->addOption("Parcour mode", "Parcour");
 
   laserValue = new NumberField("Analog laser", "", 1, 0, UINT16_MAX, 0);
   isDisplaySelect = new Select("Station type", isDisplayChanged);
