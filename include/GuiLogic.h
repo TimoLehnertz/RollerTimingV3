@@ -4,9 +4,9 @@
  * @brief File for creating and managing everything related to Displays
  * @version 0.1
  * @date 2023-07-11
- * 
+ *
  * @copyright Copyright (c) 2023
- * 
+ *
  */
 #pragma once
 #include <Arduino.h>
@@ -32,39 +32,46 @@
 void beginLEDDisplay();
 void trainingsModeChanged();
 
-int getLEDCount() {
+int getLEDCount()
+{
   return isDisplaySelect->getValue() ? NUM_LEDS_DISPLAY : NUM_LEDS_LASER;
 }
 
-uint16_t pixelConverter(uint16_t x, uint16_t y) {
+uint16_t pixelConverter(uint16_t x, uint16_t y)
+{
   y = 7 - y;
   return (8 * 31) - x * 8 + (x % 2 == 0 ? (7 - y) : y);
 }
 
-void showDebugChanged() {
+void showDebugChanged()
+{
   debugSubMenu->setHidden(!showAdvancedCB->isChecked());
   advancedText->setHidden(!showAdvancedCB->isChecked());
   isDisplaySelect->setHidden(!showAdvancedCB->isChecked());
 }
 
-void simpleInputChanged() {
+void simpleInputChanged()
+{
   writePreferences();
 }
 
-void reboot() {
+void reboot()
+{
   ESP.restart();
 }
 
-void wiFiCredentialsChanged() {
-  static char* wifiSSIDStr = new char[40];
-  static char* wifiPasswdStr = new char[40];
+void wiFiCredentialsChanged()
+{
+  static char *wifiSSIDStr = new char[40];
+  static char *wifiPasswdStr = new char[40];
   sprintf(wifiSSIDStr, "SSID: %s", APSsid.c_str());
   sprintf(wifiPasswdStr, "Password: %s", APPassword.c_str());
   wifiSSIDText->setText(wifiSSIDStr);
   wifiPasswdText->setText(wifiPasswdStr);
 }
 
-void initStationDisplay() {
+void initStationDisplay()
+{
   displayBrightnessInput->setHidden(!isDisplaySelect->getValue());
   displayTimeInput->setHidden(!isDisplaySelect->getValue());
   fontSizeSelect->setHidden(!isDisplaySelect->getValue());
@@ -76,11 +83,14 @@ void initStationDisplay() {
   minDelayInput->setHidden(isDisplaySelect->getValue());
   // wifiEnabledCB->setHidden(isDisplaySelect->getValue());
   // master slave
-  if(isDisplaySelect->getValue()) { // now I am a display
+  if (isDisplaySelect->getValue())
+  { // now I am a display
     spiffsLogic.startNewSession();
     uiManager.begin(overlayCallbacks, overlaysCount, frameSections, MASTER_FRAMES);
     trainingsModeChanged();
-  } else { // now I am a station
+  }
+  else
+  { // now I am a station
     uiManager.begin(overlayCallbacks, overlaysCount, frameSections, SLAVE_FRAMES);
     targetTimeSubMenu->setHidden(true);
     // reset SSID and password
@@ -91,7 +101,11 @@ void initStationDisplay() {
   trainingsModeSelect->setHidden(!isDisplaySelect->getValue());
 }
 
-void isDisplayChanged() {
+void isDisplayChanged()
+{
+  const bool isDisplay = isDisplaySelect->getValue();
+  resetAllSettings();
+  isDisplaySelect->setValue(isDisplay);
   writePreferences();
   uiManager.popup("Rebooting...");
   uiManager.handle(true);
@@ -151,7 +165,8 @@ void isDisplayChanged() {
 //   }
 // }
 
-void msOverlay(ScreenDisplay *display, DisplayUiState* state) {
+void msOverlay(ScreenDisplay *display, DisplayUiState *state)
+{
   display->setColor(BLACK);
   display->fillRect(0, 0, 128, 13);
   display->setColor(WHITE);
@@ -159,14 +174,21 @@ void msOverlay(ScreenDisplay *display, DisplayUiState* state) {
 
   char strConnection[30];
   strConnection[0] = 0;
-  if(!isDisplaySelect->getValue()) { // slave
-    if(masterConnected) {
-      if(slaveTriggers.getSize() > 0) {
+  if (!isDisplaySelect->getValue())
+  { // slave
+    if (masterConnected)
+    {
+      if (slaveTriggers.getSize() > 0)
+      {
         sprintf(strConnection, "Connected(%i qued)", slaveTriggers.getSize());
-      } else {
+      }
+      else
+      {
         sprintf(strConnection, "Connected");
       }
-    } else {
+    }
+    else
+    {
       sprintf(strConnection, "No connection");
     }
     display->setFont(ArialMT_Plain_10);
@@ -175,10 +197,13 @@ void msOverlay(ScreenDisplay *display, DisplayUiState* state) {
     // type of station
     display->setTextAlignment(TEXT_ALIGN_RIGHT);
     display->drawString(128, 0, String(stationTypeSelect->getSelectedShort()));
-  } else {
+  }
+  else
+  {
     size_t lapsCount = spiffsLogic.getActiveTraining().getLapsCount();
     size_t bytesUsed = spiffsLogic.getBytesTotal();
-    if(bytesUsed > 0) {
+    if (bytesUsed > 0)
+    {
       size_t memUsed = float(spiffsLogic.getBytesUsed()) / float(bytesUsed) * 100;
       char memUsedStr[20];
       memUsedStr[0] = 0;
@@ -190,25 +215,29 @@ void msOverlay(ScreenDisplay *display, DisplayUiState* state) {
   }
 }
 
-void drawFrameWiFi(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
+void drawFrameWiFi(ScreenDisplay *display, DisplayUiState *state, int16_t x, int16_t y)
+{
   // draw an xbm image.
   display->drawXbm(x + 34, y + 14, WiFi_Logo_width, WiFi_Logo_height, WiFi_Logo_bits);
 }
 
-void drawStartGun(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
+void drawStartGun(ScreenDisplay *display, DisplayUiState *state, int16_t x, int16_t y)
+{
   display->setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
   display->setFont(ArialMT_Plain_16);
   display->drawStringMaxWidth(x + 64, y + 32, 100, "Start gun");
   // display->drawXbm(x, y, START_GUN_WIDTH, START_GUN_HEIGHT, IMAGE_START_GUN);
 }
 
-void drawViewer(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
+void drawViewer(ScreenDisplay *display, DisplayUiState *state, int16_t x, int16_t y)
+{
   display->setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
   display->setFont(ArialMT_Plain_16);
   display->drawStringMaxWidth(x + 64, y + 32, 100, "Viewer");
 }
 
-void drawSetup(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t y) {
+void drawSetup(ScreenDisplay *display, DisplayUiState *state, int16_t x, int16_t y)
+{
   display->setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
   display->setFont(ArialMT_Plain_16);
   display->drawStringMaxWidth(x + 64, y + 32, 100, "Setup");
@@ -220,23 +249,28 @@ void drawSetup(ScreenDisplay *display, DisplayUiState* state, int16_t x, int16_t
 //   display->drawStringMaxWidth(x + 64, y + 32, 100, "Connections");
 // }
 
-void setMinDelayChanged() {
+void setMinDelayChanged()
+{
   setMaxDelay->setValue(max(setMaxDelay->getValue(), setMinDelay->getValue()));
 }
 
-void setMaxDelayChanged() {
+void setMaxDelayChanged()
+{
   setMinDelay->setValue(min(setMaxDelay->getValue(), setMinDelay->getValue()));
 }
 
-void goMinDelayChanged() {
+void goMinDelayChanged()
+{
   goMaxDelay->setValue(max(goMaxDelay->getValue(), goMinDelay->getValue()));
 }
 
-void goMaxDelayChanged() {
+void goMaxDelayChanged()
+{
   goMinDelay->setValue(min(goMaxDelay->getValue(), goMinDelay->getValue()));
 }
 
-void resetStartGun() {
+void resetStartGun()
+{
   inPositionDelay->setValue(15);
   setMinDelay->setValue(3);
   setMaxDelay->setValue(5);
@@ -244,24 +278,29 @@ void resetStartGun() {
   goMaxDelay->setValue(5);
 }
 
-void resetTarget() {
+void resetTarget()
+{
   targetTimeInput->setValue(300000);
   targetMetersInput->setValue(3000);
   targetMetersPerLapInput->setValue(200);
 }
 
-void startGunNowBtnPressed() {
+void startGunNowBtnPressed()
+{
   inPositionDelay->setValue(0);
   triggerStartGun();
 }
 
-void startGun15sBtnPressed() {
+void startGun15sBtnPressed()
+{
   inPositionDelay->setValue(15);
   triggerStartGun();
 }
 
-void cloudUploadChanged() {
-  if(uploadWifiSSID.length() < 2) {
+void cloudUploadChanged()
+{
+  if (uploadWifiSSID.length() < 2)
+  {
     uiManager.popup("Setup on website first!");
     cloudUploadEnabled->setChecked(false);
     return;
@@ -271,56 +310,78 @@ void cloudUploadChanged() {
 
 uint16_t stopWatchLap = 0;
 
-void startBtnPressed() {
+void startBtnPressed()
+{
   stopWatchLap = 0;
-  Trigger trigger = Trigger { timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_START };
-  if(isDisplaySelect->getValue()) { // master
+  Trigger trigger = Trigger{timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_START};
+  if (isDisplaySelect->getValue())
+  { // master
     masterTrigger(trigger);
-  } else {
+  }
+  else
+  {
     slaveTrigger(millis(), STATION_TRIGGER_TYPE_START, 0);
   }
 }
 
-void stopBtnPressed() {
-  Trigger trigger = Trigger { timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_FINISH };
-  if(isDisplaySelect->getValue()) { // master
+void stopBtnPressed()
+{
+  Trigger trigger = Trigger{timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_FINISH};
+  if (isDisplaySelect->getValue())
+  { // master
     masterTrigger(trigger);
-  } else {
+  }
+  else
+  {
     slaveTrigger(millis(), STATION_TRIGGER_TYPE_FINISH, 0);
   }
 }
 
-void lapBtnPressed() {
-  Trigger trigger = Trigger { timeMs_t(millis()), stopWatchLap, STATION_TRIGGER_TYPE_CHECKPOINT };
-  if(isDisplaySelect->getValue()) { // master
+void lapBtnPressed()
+{
+  Trigger trigger = Trigger{timeMs_t(millis()), stopWatchLap, STATION_TRIGGER_TYPE_CHECKPOINT};
+  if (isDisplaySelect->getValue())
+  { // master
     masterTrigger(trigger);
-  } else {
+  }
+  else
+  {
     slaveTrigger(millis(), STATION_TRIGGER_TYPE_CHECKPOINT, stopWatchLap);
   }
   stopWatchLap++;
 }
 
-void startFinishBtnPressed() {
-  Trigger trigger = Trigger { timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_START_FINISH };
-  if(isDisplaySelect->getValue()) { // master
+void startFinishBtnPressed()
+{
+  Trigger trigger = Trigger{timeMs_t(millis()), 0, STATION_TRIGGER_TYPE_START_FINISH};
+  if (isDisplaySelect->getValue())
+  { // master
     masterTrigger(trigger);
-  } else {
+  }
+  else
+  {
     slaveTrigger(millis(), STATION_TRIGGER_TYPE_START_FINISH, 0);
   }
 }
 
-void timToStr(timeMs_t timeMs, char* str, bool oneMsDigit = false) {
+void timToStr(timeMs_t timeMs, char *str, bool oneMsDigit = false)
+{
   timeMs = abs(timeMs);
   char hStr[10] = "\0";
-  char mStr[3]  = "\0";
+  char mStr[3] = "\0";
   char sStr[3];
   char msStr[4];
   LedMatrix::timeToStr(timeMs, hStr, mStr, sStr, msStr, oneMsDigit);
-  if(hStr[0]) {
+  if (hStr[0])
+  {
     sprintf(str, "%s:%s:%s.%s", hStr, mStr, sStr, msStr);
-  } else if(mStr[0]) {
+  }
+  else if (mStr[0])
+  {
     sprintf(str, "%s:%s.%s", mStr, sStr, msStr);
-  } else {
+  }
+  else
+  {
     sprintf(str, "%s.%ss", sStr, msStr);
   }
 }
@@ -340,9 +401,9 @@ void timToStr(timeMs_t timeMs, char* str, bool oneMsDigit = false) {
 /**
  * Viewer variables
  */
-char* viewerTimeStrings[1000];
+char *viewerTimeStrings[1000];
 size_t viewerTimeStringsCount = 0;
-MenuItem* viewerMenuItems[1000];
+MenuItem *viewerMenuItems[1000];
 size_t viewerMenuItemCount = 0;
 
 // Button* showOlderBtn = new Button("Show older", showOlder);
@@ -381,7 +442,7 @@ size_t viewerMenuItemCount = 0;
 // void updateViewer() {
 //   TrainingsSession& session = spiffsLogic.getActiveTraining();
 //   viewerMenu->removeAll();
-  
+
 //   for (size_t i = 0; i < viewerMenuItemCount; i++) {
 //     delete viewerMenuItems[i];
 //   }
@@ -441,21 +502,26 @@ size_t viewerMenuItemCount = 0;
 //   // TextItem* fileNameLabel = new TextItem(fileNameText, true);
 //   // viewerMenuItems[viewerMenuItemCount++] = fileNameLabel;
 //   // viewerMenu->prependItem(fileNameLabel);
-  
+
 //   // TextItem* viewerLabel = new TextItem("Viewer");
 //   // viewerMenuItems[viewerMenuItemCount++] = viewerLabel;
 //   // viewerMenu->prependItem(viewerLabel);
 // }
 
-void trainingsModeChanged() {
+void trainingsModeChanged()
+{
   Serial.println("trainingsMode changed");
   targetTimeSubMenu->setHidden(trainingsModeSelect->getValue() != TRAININGS_MODE_TARGET);
 }
 
-void stationTypeChanged() {
-  if(stationTypeSelect->getValue() == STATION_TRIGGER_TYPE_START) {
+void stationTypeChanged()
+{
+  if (stationTypeSelect->getValue() == STATION_TRIGGER_TYPE_START)
+  {
     distFromStartInput->setHidden(true);
-  } else {
+  }
+  else
+  {
     distFromStartInput->setHidden(false);
   }
 }
@@ -470,15 +536,18 @@ void stationTypeChanged() {
 //   wifiHelpText3->setHidden(!wifiEnabledCB->isChecked());
 // }
 
-void lapDisplayTypeChanged() {
+void lapDisplayTypeChanged()
+{
   writePreferences();
 }
 
-void deleteAllSessionsPressed() {
+void deleteAllSessionsPressed()
+{
   spiffsLogic.deleteAllSessions();
 }
 
-void beginLCDDisplay() {
+void beginLCDDisplay()
+{
   distFromStartInput = new NumberField("Dist. from start", "m", 0.1, 0, 655, 1, 10, simpleInputChanged);
   minDelayInput = new NumberField("Min. delay", "s", 0.1, 0.5, 1000, 1, 0, simpleInputChanged);
 
@@ -504,11 +573,11 @@ void beginLCDDisplay() {
   trainingsModeSelect->addOption("Normal", "Normal");
   trainingsModeSelect->addOption("Target time", "Target");
   stationTypeSelect = new Select("Function", stationTypeChanged);
-  stationTypeSelect->addOption("Start + finish", "S+F"); // STATION_TRIGGER_TYPE_START_FINISH 0
-  stationTypeSelect->addOption("Only start", "Start"); // STATION_TRIGGER_TYPE_START 1
-  stationTypeSelect->addOption("checkpoint", "Checkpoint"); // STATION_TRIGGER_TYPE_CHECKPOINT 2
-  stationTypeSelect->addOption("Only finish", "Finish"); // STATION_TRIGGER_TYPE_FINISH 3
-  stationTypeSelect->addOption("Parcour start", "Parc. start"); // STATION_TRIGGER_TYPE_PARCOUR_START 4
+  stationTypeSelect->addOption("Start + finish", "S+F");          // STATION_TRIGGER_TYPE_START_FINISH 0
+  stationTypeSelect->addOption("Only start", "Start");            // STATION_TRIGGER_TYPE_START 1
+  stationTypeSelect->addOption("checkpoint", "Checkpoint");       // STATION_TRIGGER_TYPE_CHECKPOINT 2
+  stationTypeSelect->addOption("Only finish", "Finish");          // STATION_TRIGGER_TYPE_FINISH 3
+  stationTypeSelect->addOption("Parcour start", "Parc. start");   // STATION_TRIGGER_TYPE_PARCOUR_START 4
   stationTypeSelect->addOption("Parcour finish", "Parc. finish"); // STATION_TRIGGER_TYPE_PARCOUR_FINISH 5
   stationTypeChanged();
 
@@ -520,10 +589,10 @@ void beginLCDDisplay() {
   isDisplaySelect = new Select("Station type", isDisplayChanged);
   isDisplaySelect->addOption("Laser/Reflector", "Laser");
   isDisplaySelect->addOption("Display station", "Display");
-  char* wifiPasswdTextStr = new char[20]; // never deleted
+  char *wifiPasswdTextStr = new char[20]; // never deleted
   sprintf(wifiPasswdTextStr, "Password: %s", APPassword);
   wifiPasswdText = new TextItem(wifiPasswdTextStr, true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
-  char* wifiSsidTextStr = new char[20]; // never deleted
+  char *wifiSsidTextStr = new char[20]; // never deleted
   sprintf(wifiSsidTextStr, "Name: %s", APSsid);
   wifiSSIDText = new TextItem(wifiSsidTextStr, true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
   wifiIPText = new TextItem("URL: http://8.8.8.8", true, DISPLAY_TEXT_ALIGNMENT::TEXT_ALIGN_LEFT);
@@ -546,14 +615,14 @@ void beginLCDDisplay() {
   resetTarget();
 
   // Button* deleteAllSessionsBtn = new Button("Delete all sessions", deleteAllSessionsPressed);
-  Button* startGunBtn = new Button("Start now!", startGunNowBtnPressed);
-  Button* startGun15sBtn = new Button("Start in 15s", startGun15sBtnPressed);
+  Button *startGunBtn = new Button("Start now!", startGunNowBtnPressed);
+  Button *startGun15sBtn = new Button("Start in 15s", startGun15sBtnPressed);
 
   startBtn = new Button("Start", startBtnPressed);
   lapBtn = new Button("Lap", lapBtnPressed);
   stopBtn = new Button("Stop", stopBtnPressed);
   startFinishBtn = new Button("Start/Finish", startFinishBtnPressed);
-  
+
   // wifiEnabledCB = new CheckBox("WiFi Activated", false, false, wifiEnabledChanged);
 
   cloudUploadEnabled = new CheckBox("Cloud upload", false, false, cloudUploadChanged);
@@ -565,15 +634,15 @@ void beginLCDDisplay() {
   fontSizeSelect->addOption("Small", "S");
 
   // All menu inits
-  Menu* systemSettingsMenu = new Menu();
-  Menu* setupMenu = new Menu();
-  Menu* debugMenu = new Menu();
-  Menu* menuFactoryReset = new Menu("No");
+  Menu *systemSettingsMenu = new Menu();
+  Menu *setupMenu = new Menu();
+  Menu *debugMenu = new Menu();
+  Menu *menuFactoryReset = new Menu("No");
   // connectionsMenuMaster = new Menu();
   // viewerMenu = new Menu();
-  Menu* wifiMenu = new Menu();
-  Menu* infoMenu = new Menu();
-  Menu* startMenu = new Menu();
+  Menu *wifiMenu = new Menu();
+  Menu *infoMenu = new Menu();
+  Menu *startMenu = new Menu();
   targetTimeMenu = new Menu();
   targetTimeSubMenu = new SubMenu("Target time", targetTimeMenu);
   debugSubMenu = new SubMenu("Debug", debugMenu);
@@ -583,11 +652,11 @@ void beginLCDDisplay() {
   // setupMenu->addItem(trainingsModeSelect); // future version
   setupMenu->addItem(targetTimeSubMenu);
 
-    targetTimeMenu->addItem(new TextItem("Target time"));
-    targetTimeMenu->addItem(targetTimeInput);
-    targetTimeMenu->addItem(targetMetersInput);
-    targetTimeMenu->addItem(targetMetersPerLapInput);
-    targetTimeMenu->addItem(new Button("Reset target", resetTarget));
+  targetTimeMenu->addItem(new TextItem("Target time"));
+  targetTimeMenu->addItem(targetTimeInput);
+  targetTimeMenu->addItem(targetMetersInput);
+  targetTimeMenu->addItem(targetMetersPerLapInput);
+  targetTimeMenu->addItem(new Button("Reset target", resetTarget));
 
   setupMenu->addItem(stationTypeSelect);
   setupMenu->addItem(distFromStartInput);
@@ -597,59 +666,58 @@ void beginLCDDisplay() {
   setupMenu->addItem(lapDisplayTypeSelect);
   setupMenu->addItem(fontSizeSelect);
 
-    startMenu->addItem(new TextItem("Start gun"));
-    startMenu->addItem(startGunBtn);
-    startMenu->addItem(startGun15sBtn);
-    startMenu->addItem(new TextItem("\"Set\""));
-    startMenu->addItem(setMinDelay);
-    startMenu->addItem(setMaxDelay);
-    startMenu->addItem(new TextItem("\"Go!\""));
-    startMenu->addItem(goMinDelay);
-    startMenu->addItem(goMaxDelay);
-    startMenu->addItem(new Button("Reset start gun", resetStartGun));
-    startMenu->addItem(new TextItem("Stop watch"));
-    startMenu->addItem(startBtn);
-    startMenu->addItem(lapBtn);
-    startMenu->addItem(stopBtn);
-    startMenu->addItem(startFinishBtn);
+  startMenu->addItem(new TextItem("Start gun"));
+  startMenu->addItem(startGunBtn);
+  startMenu->addItem(startGun15sBtn);
+  startMenu->addItem(new TextItem("\"Set\""));
+  startMenu->addItem(setMinDelay);
+  startMenu->addItem(setMaxDelay);
+  startMenu->addItem(new TextItem("\"Go!\""));
+  startMenu->addItem(goMinDelay);
+  startMenu->addItem(goMaxDelay);
+  startMenu->addItem(new Button("Reset start gun", resetStartGun));
+  startMenu->addItem(new TextItem("Stop watch"));
+  startMenu->addItem(startBtn);
+  startMenu->addItem(lapBtn);
+  startMenu->addItem(stopBtn);
+  startMenu->addItem(startFinishBtn);
 
   setupMenu->addItem(new SubMenu("System settings", systemSettingsMenu));
 
-    systemSettingsMenu->addItem(new TextItem("System settings"));
+  systemSettingsMenu->addItem(new TextItem("System settings"));
 
-    systemSettingsMenu->addItem(new SubMenu("Factory reset", menuFactoryReset));
+  systemSettingsMenu->addItem(new SubMenu("Factory reset", menuFactoryReset));
 
-      menuFactoryReset->addItem(new TextItem("Are you sure?"));
-      menuFactoryReset->addItem(new Button("Yes", factoryReset));
+  menuFactoryReset->addItem(new TextItem("Are you sure?"));
+  menuFactoryReset->addItem(new Button("Yes", factoryReset));
 
-    systemSettingsMenu->addItem(showAdvancedCB);
-    systemSettingsMenu->addItem(advancedText);
-    systemSettingsMenu->addItem(debugSubMenu);
-    systemSettingsMenu->addItem(isDisplaySelect);
-    // systemSettingsMenu->addItem(deleteAllSessionsBtn);
+  systemSettingsMenu->addItem(showAdvancedCB);
+  systemSettingsMenu->addItem(advancedText);
+  systemSettingsMenu->addItem(debugSubMenu);
+  systemSettingsMenu->addItem(isDisplaySelect);
+  // systemSettingsMenu->addItem(deleteAllSessionsBtn);
 
-      debugMenu->addItem(new TextItem("Info for nerds"));
-      debugMenu->addItem(displayCurrentText);
-      debugMenu->addItem(displayCurrentAfterScaleText);
-      debugMenu->addItem(vBatMeasured);
-      debugMenu->addItem(vBatText);
-      debugMenu->addItem(hzText);
-      debugMenu->addItem(new TextItem("Heap memory"));
-      debugMenu->addItem(freeHeapText);
-      debugMenu->addItem(heapSizeText);
-      debugMenu->addItem(laserValue);
-      debugMenu->addItem(new Button("Reboot", reboot));
+  debugMenu->addItem(new TextItem("Info for nerds"));
+  debugMenu->addItem(displayCurrentText);
+  debugMenu->addItem(displayCurrentAfterScaleText);
+  debugMenu->addItem(vBatMeasured);
+  debugMenu->addItem(vBatText);
+  debugMenu->addItem(hzText);
+  debugMenu->addItem(new TextItem("Heap memory"));
+  debugMenu->addItem(freeHeapText);
+  debugMenu->addItem(heapSizeText);
+  debugMenu->addItem(laserValue);
+  debugMenu->addItem(new Button("Reboot", reboot));
 
   setupMenu->addItem(new SubMenu("Info", infoMenu));
 
-    infoMenu->addItem(new TextItem("Roller timing", true));
-    infoMenu->addItem(new TextItem("Version", true));
-    infoMenu->addItem(new TextItem(VERSION, true));
-    infoMenu->addItem(new TextItem("www.roller-results.com", true));
-    infoMenu->addItem(new TextItem("By Timo Lehenrtz", true));
+  infoMenu->addItem(new TextItem("Roller timing", true));
+  infoMenu->addItem(new TextItem("Version", true));
+  infoMenu->addItem(new TextItem(VERSION, true));
+  infoMenu->addItem(new TextItem("www.roller-results.com", true));
+  infoMenu->addItem(new TextItem("By Timo Lehenrtz", true));
 
   // viewerMenu->addItem(new TextItem("Viewer"));
-
 
   // connectionsMenuMaster->addItem(new TextItem("Connections"));
 
@@ -682,7 +750,8 @@ void beginLCDDisplay() {
   // wifiEnabledChanged();
 }
 
-void beginLEDDisplay() {
+void beginLEDDisplay()
+{
   FastLED.clearData();
   FastLED.addLeds<NEOPIXEL, PIN_WS2812b>(leds, NUM_LEDS_DISPLAY);
   matrix = LedMatrix(leds, NUM_LEDS_DISPLAY, pixelConverter);
@@ -691,9 +760,11 @@ void beginLEDDisplay() {
 /**
  * @brief probably acurate +-10%
  */
-float predictLEDCurrentDraw() {
+float predictLEDCurrentDraw()
+{
   float currentDraw = 0; // w
-  for (size_t i = 0; i < getLEDCount(); i++) {
+  for (size_t i = 0; i < getLEDCount(); i++)
+  {
     currentDraw += leds[i].r / 255.0 * MAX_AMPS_PER_PIXEL / 3.0;
     currentDraw += leds[i].g / 255.0 * MAX_AMPS_PER_PIXEL / 3.0;
     currentDraw += leds[i].b / 255.0 * MAX_AMPS_PER_PIXEL / 3.0;
@@ -703,116 +774,173 @@ float predictLEDCurrentDraw() {
 
 timeMs_t lastLEDUpdate = 0;
 
-void ledDisplayTime(timeMs_t time, bool oneDigit) {
-  if(fontSizeSelect->getValue() == 0) {// large
+void ledDisplayTime(timeMs_t time, bool oneDigit)
+{
+  if (fontSizeSelect->getValue() == 0)
+  { // large
     matrix.printTimeBig(6, 0, time, oneDigit);
-  } else { // small
+  }
+  else
+  { // small
     matrix.printTimeSmall(10, 2, time, oneDigit);
   }
 }
 
-void ledDisplaySpeed(float speed) {
-  if(fontSizeSelect->getValue() == 0) {// large
+void ledDisplaySpeed(float speed)
+{
+  if (fontSizeSelect->getValue() == 0)
+  { // large
     matrix.printSpeedBig(6, 0, speed);
-  } else { // small
+  }
+  else
+  { // small
     matrix.printSpeedSmall(10, 2, speed);
   }
 }
 
-bool isLaserTimeout() {
+bool isLaserTimeout()
+{
   return millis() < lastTriggerMs + minDelayInput->getValue() * 1000 && lastTriggerMs != 0;
 }
 
-void handleLEDS() {
+void handleLEDS()
+{
   float stationDisplayBrightness = 1;
   static float lastDisplayBrightness = 0.3;
-  if(millis() - lastLEDUpdate < 1000.0 / 30.0) return;
+  if (millis() - lastLEDUpdate < 1000.0 / 30.0)
+    return;
   lastLEDUpdate = millis();
   FastLED.clear();
-  TrainingsSession& session = spiffsLogic.getActiveTraining();
-  if(isDisplaySelect->getValue()) {
-    if(millis() < 4000) { // intro
+  TrainingsSession &session = spiffsLogic.getActiveTraining();
+  if (isDisplaySelect->getValue())
+  {
+    if (millis() < 4000)
+    { // intro
       matrix.print("GO SKATE!", 1, 1, CRGB::White, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
-    } else { // display lap
-      if(session.isLastTriggerParcour()) {
+    }
+    else
+    { // display lap
+      if (session.isLastTriggerParcour())
+      {
         ledDisplayTime(session.getLastParcourTime(), true);
-      } else if(lapDisplayTypeSelect->getValue() == 0) { // lap time
-        if(session.getTriggerCount() == 0) {
+      }
+      else if (lapDisplayTypeSelect->getValue() == 0)
+      { // lap time
+        if (session.getTriggerCount() == 0)
+        {
           ledDisplayTime(0, true);
-        } else {
-          if((session.isLapStarted() || session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000) && session.getTimeSinceLastSplit() < displayTimeInput->getValue() * 1000 / 2) {
+        }
+        else
+        {
+          if ((session.isLapStarted() || session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000) && session.getTimeSinceLastSplit() < displayTimeInput->getValue() * 1000 / 2)
+          {
             ledDisplayTime(session.getLastSplitTime(), false);
-          } else if(session.getLastLapMs() != INT32_MAX && (session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000 || !session.isLapStarted())) {
+          }
+          else if (session.getLastLapMs() != INT32_MAX && (session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000 || !session.isLapStarted()))
+          {
             ledDisplayTime(session.getLastLapMs(), false);
-          } else {
+          }
+          else
+          {
             timeMs_t time = session.getTimeSinceLastStart();
-            if(time == INT32_MAX) time = 0;
+            if (time == INT32_MAX)
+              time = 0;
             // time = time / 100 * 100; // getting last 2 digits to 0
             ledDisplayTime(time, true);
           }
         }
-      } else if(lapDisplayTypeSelect->getValue() == 1) { // lap speed
-        if(session.getTriggerCount() == 0) {
+      }
+      else if (lapDisplayTypeSelect->getValue() == 1)
+      { // lap speed
+        if (session.getTriggerCount() == 0)
+        {
           ledDisplayTime(0, true);
-        } else {
-          if((session.isLapStarted() || session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000) && session.getTimeSinceLastSplit() < displayTimeInput->getValue() * 1000 / 2) {
+        }
+        else
+        {
+          if ((session.isLapStarted() || session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000) && session.getTimeSinceLastSplit() < displayTimeInput->getValue() * 1000 / 2)
+          {
             ledDisplayTime(session.getLastSplitTime(), false);
-          } else if(session.getLastLapMs() != INT32_MAX && (session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000 || !session.isLapStarted())) {
+          }
+          else if (session.getLastLapMs() != INT32_MAX && (session.getTimeSinceLastFinish() < displayTimeInput->getValue() * 1000 || !session.isLapStarted()))
+          {
             const timeMs_t lastLapTime = session.getLastLapMs();
-            if(lastLapTime != 0) {
+            if (lastLapTime != 0)
+            {
               const float speed = (session.getLastLapDistance() / 1000000.0) / (lastLapTime / 1000.0 / 60 / 60); // km / h
               Serial.printf("dist: %fkm, time: %fh, speed: %fkph\n", session.getLastLapDistance() / 1000000.0, (lastLapTime / 1000.0 / 60 / 60), speed);
               ledDisplaySpeed(speed);
             }
-          } else {
+          }
+          else
+          {
             ledDisplayTime(0, true);
           }
         }
       }
-      if(session.isLastTriggerParcour()) { // parcour mode
+      if (session.isLastTriggerParcour())
+      { // parcour mode
         char str[3];
         size_t startsMinusFinishes = session.getParcourStartsMinusFinishes();
-        if(startsMinusFinishes > MAX_PARCOUR_TIMES) {
+        if (startsMinusFinishes > MAX_PARCOUR_TIMES)
+        {
           startsMinusFinishes = MAX_PARCOUR_TIMES;
         }
         sprintf(str, "%i", startsMinusFinishes);
         matrix.print(str, 0, 0, CRGB::Yellow, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
-      } else {
+      }
+      else
+      {
         // Lap count
         char lapsStr[3];
         size_t laps = session.getLapsCount();
-        if(fontSizeSelect->getValue() == 0) { // large
+        if (fontSizeSelect->getValue() == 0)
+        { // large
           laps = laps % 10;
-        } else {
+        }
+        else
+        {
           laps = laps % 100;
         }
         sprintf(lapsStr, "%i", laps);
         matrix.print(lapsStr, 0, 0, CRGB::Yellow, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
       }
     }
-  } else {
+  }
+  else
+  {
     static size_t ledState = 0;
     size_t prevLedState = ledState;
     static timeMs_t lastLEDStateChange = 0;
-    for (int i = 0; i < min(double(getLEDCount()), millis() / 150.0 - 7); i++) {
-      if(isTriggered()) {
+    for (int i = 0; i < min(double(getLEDCount()), millis() / 150.0 - 7); i++)
+    {
+      if (isTriggered())
+      {
         ledState = 1;
         leds[i] = CRGB(0x555555);
-      } else if(isLaserTimeout()) {
+      }
+      else if (isLaserTimeout())
+      {
         ledState = 2;
         leds[i] = CRGB::Red;
-      } else {
+      }
+      else
+      {
         ledState = 3;
         double value = (sin(((millis() + timeSyncOffset) - i * 750) / 1000.0) + 1.0) / 2.0;
         leds[i] = CRGB(60 * value, 0, 40 * value);
       }
     }
-    if(prevLedState != ledState) {
+    if (prevLedState != ledState)
+    {
       lastLEDStateChange = millis();
     }
-    if(millis() - lastLEDStateChange < 3000) {
+    if (millis() - lastLEDStateChange < 3000)
+    {
       stationDisplayBrightness = 1;
-    } else {
+    }
+    else
+    {
       stationDisplayBrightness = 0.001;
     }
   }
@@ -825,18 +953,26 @@ void handleLEDS() {
   // handle brightness
   float displayCurrent = predictLEDCurrentDraw();
   displayCurrentText->setValue(displayCurrent);
-  const float inputBrightness = isDisplaySelect->getValue() ? displayBrightnessInput->getValue() / 100.0 * 255.0 : stationDisplayBrightness * 255.0;
+  const float inputBrightness = isDisplaySelect->getValue() ? displayBrightnessInput->getValue() / 60.0 * 255.0 : stationDisplayBrightness * 255.0;
   float displayBrightness = MAX_CONTINUOUS_AMPS / displayCurrent * inputBrightness;
-  if(displayBrightness > 150) displayBrightness = 150;
+  if (displayBrightness > 150)
+    displayBrightness = 150;
   displayCurrentAfterScaleText->setValue(displayCurrent * (displayBrightness / 255.0));
   float brightnessLPF = 0.05;
   displayBrightness = displayBrightness * brightnessLPF + lastDisplayBrightness * (1 - brightnessLPF);
   lastDisplayBrightness = displayBrightness;
   FastLED.setBrightness(displayBrightness);
+  if (!isDisplaySelect->getValue())
+  {
+    FastLED.setBrightness(30);
+  }
   FastLED.show();
-  if(millis() < 1000) {
+  if (millis() < 1000)
+  {
     digitalWrite(PIN_LED_WHITE, millis() % 100 > 50);
-  } else {
+  }
+  else
+  {
     digitalWrite(PIN_LED_WHITE, LOW);
   }
 }

@@ -4,9 +4,9 @@
  * @brief File dealing with everything related to ESP32 WiFi
  * @version 0.1
  * @date 2023-07-11
- * 
+ *
  * @copyright Copyright (c) 2023
- * 
+ *
  */
 #pragma once
 #include <Arduino.h>
@@ -38,7 +38,7 @@ AsyncEventSource liveEventHandler("/live");
 // const byte DNS_PORT = 53;
 
 // The access points IP address and net mask
-// It uses the default Google DNS IP address 8.8.8.8 to capture all 
+// It uses the default Google DNS IP address 8.8.8.8 to capture all
 // Android dns requests
 IPAddress apIP(8, 8, 8, 8);
 IPAddress netMsk(255, 255, 255, 0);
@@ -49,22 +49,22 @@ timeMs_t startGunTime = INT32_MAX;
 
 timeMs_t restardWifiTime = 0; // can be set to a time to restard wifi at that time. Used to update credentials
 
-void handleIndexPage(AsyncWebServerRequest* request);
-void handleNotFound(AsyncWebServerRequest* request);
-void handleSessionsJson(AsyncWebServerRequest* request);
-void handleSession(AsyncWebServerRequest* request);
-void handleCaptive(AsyncWebServerRequest* request);
-void handleInPositionMp3(AsyncWebServerRequest* request);
-void handleSetMp3(AsyncWebServerRequest* request);
-void handleBeepMp3(AsyncWebServerRequest* request);
-void handleStartIn(AsyncWebServerRequest* request);
-void handleSettings(AsyncWebServerRequest* request);
-void handleDeleteSession(AsyncWebServerRequest* request);
-void handleLogo(AsyncWebServerRequest* request);
-void handleUserManual(AsyncWebServerRequest* request);
-void handleWiFiSettings(AsyncWebServerRequest* request);
-void handleUpdatePage(AsyncWebServerRequest* request);
-DoubleLinkedList<SessionPageInfo> buildSessionTriggers(JsonBuilder& builder, TrainingsSession& session, size_t page);
+void handleIndexPage(AsyncWebServerRequest *request);
+void handleNotFound(AsyncWebServerRequest *request);
+void handleSessionsJson(AsyncWebServerRequest *request);
+void handleSession(AsyncWebServerRequest *request);
+void handleCaptive(AsyncWebServerRequest *request);
+void handleInPositionMp3(AsyncWebServerRequest *request);
+void handleSetMp3(AsyncWebServerRequest *request);
+void handleBeepMp3(AsyncWebServerRequest *request);
+void handleStartIn(AsyncWebServerRequest *request);
+void handleSettings(AsyncWebServerRequest *request);
+void handleDeleteSession(AsyncWebServerRequest *request);
+void handleLogo(AsyncWebServerRequest *request);
+void handleUserManual(AsyncWebServerRequest *request);
+void handleWiFiSettings(AsyncWebServerRequest *request);
+void handleUpdatePage(AsyncWebServerRequest *request);
+DoubleLinkedList<SessionPageInfo> buildSessionTriggers(JsonBuilder &builder, TrainingsSession &session, size_t page);
 
 void beginWiFi();
 // void endWiFi();
@@ -72,23 +72,30 @@ void writePreferences();
 void wiFiCredentialsChanged();
 
 // ?
-String processor(const String& var) {
-  return String();
+String processor(const String &var)
+{
+    return String();
 }
 
-void handleIndexPage(AsyncWebServerRequest* request) {
-    if(isDisplaySelect->getValue()) { // is display
+void handleIndexPage(AsyncWebServerRequest *request)
+{
+    if (isDisplaySelect->getValue())
+    { // is display
         request->send(SPIFFS, "/index.html", String("text/html"), false, processor);
-    } else {
+    }
+    else
+    {
         handleUpdatePage(request);
     }
 }
 
-void handleCaptive(AsyncWebServerRequest* request) {
+void handleCaptive(AsyncWebServerRequest *request)
+{
     request->send(SPIFFS, "/captive.html", String("text/html"), false, processor);
 }
 
-void resolveLiveRequests(size_t newTriggerCount) {
+void resolveLiveRequests(size_t newTriggerCount)
+{
     Serial.println("Resolving live requests");
     TrainingsSession cachedSession = spiffsLogic.getActiveTraining();
     JsonBuilder builder = JsonBuilder();
@@ -102,40 +109,48 @@ void resolveLiveRequests(size_t newTriggerCount) {
     liveEventHandler.send(json.c_str(), "update", millis());
 }
 
-void handleLiveConnect(AsyncEventSourceClient *client) {
-    if(client->lastId()){
+void handleLiveConnect(AsyncEventSourceClient *client)
+{
+    if (client->lastId())
+    {
         Serial.printf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
     }
     // send event with message "hello!", id current millis
     // and set reconnect delay to 1 second
-    
+
     TrainingsSession cachedSession = spiffsLogic.getActiveTraining();
     JsonBuilder builder = JsonBuilder();
     builder.startArray();
-    for (auto &&trigger : cachedSession.getCache()) {
+    for (auto &&trigger : cachedSession.getCache())
+    {
         builder.insertTriggerObj(trigger);
     }
     builder.endArray();
     client->send(builder.getJson().c_str(), "init", millis());
 }
 
-void handleSession(AsyncWebServerRequest* request) {
-    if(!request->hasParam("name")) {
+void handleSession(AsyncWebServerRequest *request)
+{
+    if (!request->hasParam("name"))
+    {
         request->send(404, "text/plain", "please provide the session name");
         return;
     }
     String name = request->getParam("name")->value();
     int id = name.toInt();
-    if(!spiffsLogic.hasTraining(name)) {
+    if (!spiffsLogic.hasTraining(name))
+    {
         request->send(404, "text/plain", "Session not found");
         return;
     }
     TrainingsSession session = spiffsLogic.getTraining(name);
     size_t page = 0;
-    if(request->hasParam("page")) {
+    if (request->hasParam("page"))
+    {
         page = request->getParam("page")->value().toInt();
     }
-    if(page >= session.getPageCount()) {
+    if (page >= session.getPageCount())
+    {
         request->send(400, "text/plain", "Page doesnt exist");
         return;
     }
@@ -150,33 +165,40 @@ void handleSession(AsyncWebServerRequest* request) {
     request->send(200, "application/json", jsonBuilder.getJson());
 }
 
-void handleInPositionMp3(AsyncWebServerRequest* request) {
-    AsyncWebServerResponse* response = request->beginResponse(SPIFFS, "/inPosition.mp3", "audio/mpeg");
+void handleInPositionMp3(AsyncWebServerRequest *request)
+{
+    AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/inPosition.mp3", "audio/mpeg");
     request->send(response);
 }
 
-void handleSetMp3(AsyncWebServerRequest* request) {
-    AsyncWebServerResponse* response = request->beginResponse(SPIFFS, "/set.mp3", "audio/mpeg");
+void handleSetMp3(AsyncWebServerRequest *request)
+{
+    AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/set.mp3", "audio/mpeg");
     request->send(response);
 }
 
-void handleBeepMp3(AsyncWebServerRequest* request) {
-    AsyncWebServerResponse* response = request->beginResponse(SPIFFS, "/beep.mp3", "audio/mpeg");
+void handleBeepMp3(AsyncWebServerRequest *request)
+{
+    AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/beep.mp3", "audio/mpeg");
     request->send(response);
 }
 
-void handleLogo(AsyncWebServerRequest* request) {
-    AsyncWebServerResponse* response = request->beginResponse(SPIFFS, "/logo.png", "image/png");
+void handleLogo(AsyncWebServerRequest *request)
+{
+    AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/logo.png", "image/png");
     request->send(response);
 }
 
-void handleUserManual(AsyncWebServerRequest* request) {
-    AsyncWebServerResponse* response = request->beginResponse(SPIFFS, "/user-manual.html", "text/html");
+void handleUserManual(AsyncWebServerRequest *request)
+{
+    AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/user-manual.html", "text/html");
     request->send(response);
 }
 
-void handleStartIn(AsyncWebServerRequest* request) {
-    if(!request->hasParam("delayMs")) {
+void handleStartIn(AsyncWebServerRequest *request)
+{
+    if (!request->hasParam("delayMs"))
+    {
         request->send(400, "text/html", "No delayMs");
     }
     timeMs_t delayMs = request->getParam("delayMs")->value().toInt();
@@ -184,21 +206,28 @@ void handleStartIn(AsyncWebServerRequest* request) {
     request->send(200, "text/html", "OK");
 }
 
-void handleDeleteSession(AsyncWebServerRequest* request) {
-    if(!request->hasParam("name")) {
+void handleDeleteSession(AsyncWebServerRequest *request)
+{
+    if (!request->hasParam("name"))
+    {
         request->send(400, "text/html", "Name missing");
     }
-    if(spiffsLogic.getActiveTraining().getFileName().equals(request->getParam("name")->value())) {
+    if (spiffsLogic.getActiveTraining().getFileName().equals(request->getParam("name")->value()))
+    {
         request->send(400, "text/html", "Cant delete active session");
     }
-    if(!spiffsLogic.deleteSession(request->getParam("name")->value())) {
+    if (!spiffsLogic.deleteSession(request->getParam("name")->value()))
+    {
         request->send(500, "text/html", "Error");
-    } else {
+    }
+    else
+    {
         request->send(200, "text/html", "Done");
     }
 }
 
-void handleUpdatePage(AsyncWebServerRequest* request) {
+void handleUpdatePage(AsyncWebServerRequest *request)
+{
     request->send(200, "text/html", (R""""(<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -256,7 +285,7 @@ void handleUpdatePage(AsyncWebServerRequest* request) {
             <div class="container">
                 <div class="content">
                     <div class="error" id="error-message"></div>
-                    <h1>Roller timing version 3.0</h1>
+                    <h1>Roller timing version 3.1</h1>
                     <br>
                     <p><b>Attention</b> Updating the firmware will erase <b>all</b> your settings and saved Trainings sessions. Only proceed if that is okay!</p>
                     <p>Follow all of the steps below closely in the correct order</p>
@@ -287,7 +316,7 @@ void handleUpdatePage(AsyncWebServerRequest* request) {
                     <br><hr><br>
                     <p>
                         Roller timing<br>
-                        Software version: <span style="color: #24240f">3.0</span><br>
+                        Software version: <span style="color: #24240f">3.1</span><br>
                         Roller results - From skaters for skaters<br>
                         by Timo Lehnertz
                     </p>
@@ -297,19 +326,22 @@ void handleUpdatePage(AsyncWebServerRequest* request) {
         </html>)""""));
 }
 
-void handleWiFiSettings(AsyncWebServerRequest* request) {
+void handleWiFiSettings(AsyncWebServerRequest *request)
+{
     // int params = request->params();
     // for (int i = 0; i < params; i++) {
     //     AsyncWebParameter* p = request->getParam(i);
     //     Serial.printf("POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
     // }
-    if(!request->hasParam("APSsid") && !request->hasParam("APPassword")) {
+    if (!request->hasParam("APSsid") && !request->hasParam("APPassword"))
+    {
         Serial.println(request->hasParam("APSsid"));
         Serial.println(request->hasParam("APPassword"));
         request->send(400, "text/html", "bad request");
         return;
     }
-    if(APSsid == request->getParam("APSsid")->value() && APPassword == request->getParam("APPassword")->value()) { // nothing changed
+    if (APSsid == request->getParam("APSsid")->value() && APPassword == request->getParam("APPassword")->value())
+    { // nothing changed
         handleIndexPage(request);
         return;
     }
@@ -322,31 +354,40 @@ void handleWiFiSettings(AsyncWebServerRequest* request) {
     // request->send(200, "text/html", String("Please reconnect to ") + String(APSsid));
 }
 
-void handleSettings(AsyncWebServerRequest* request) {
-    if(request->hasParam("displayBrightness")) {
+void handleSettings(AsyncWebServerRequest *request)
+{
+    if (request->hasParam("displayBrightness"))
+    {
         int displayBrightness = request->getParam("displayBrightness")->value().toInt();
         displayBrightnessInput->setValue(displayBrightness);
     }
-    if(request->hasParam("displayTime")) {
+    if (request->hasParam("displayTime"))
+    {
         int displayTime = request->getParam("displayTime")->value().toFloat();
         displayTimeInput->setValue(displayTime);
     }
-    if(request->hasParam("fontSize")) {
+    if (request->hasParam("fontSize"))
+    {
         fontSizeSelect->setValue(request->getParam("fontSize")->value().toInt());
     }
-    if(request->hasParam("username")) {
+    if (request->hasParam("username"))
+    {
         username = request->getParam("username")->value();
         cloudUploadEnabled->setChecked(true);
     }
-    if(request->hasParam("wifiSSID")) {
+    if (request->hasParam("wifiSSID"))
+    {
         uploadWifiSSID = request->getParam("wifiSSID")->value();
     }
-    if(request->hasParam("wifiPassword")) {
+    if (request->hasParam("wifiPassword"))
+    {
         uploadWifiPassword = request->getParam("wifiPassword")->value();
     }
-    if(request->hasParam("lapDisplayType")) {
+    if (request->hasParam("lapDisplayType"))
+    {
         const int lapDisplayType = request->getParam("lapDisplayType")->value().toInt();
-        if(lapDisplayType >= 0 && lapDisplayType <= 1) {
+        if (lapDisplayType >= 0 && lapDisplayType <= 1)
+        {
             lapDisplayTypeSelect->setValue(lapDisplayType);
         }
     }
@@ -354,8 +395,9 @@ void handleSettings(AsyncWebServerRequest* request) {
     request->send(200, "text/html", "OK");
 }
 
-void handleSessionsJson(AsyncWebServerRequest* request) {
-    const DoubleLinkedList<TrainingsMeta>& metas = spiffsLogic.getTrainingsMetas();
+void handleSessionsJson(AsyncWebServerRequest *request)
+{
+    const DoubleLinkedList<TrainingsMeta> &metas = spiffsLogic.getTrainingsMetas();
     JsonBuilder builder = JsonBuilder();
     builder.startObject();
     builder.addKey("displayTime");
@@ -378,7 +420,8 @@ void handleSessionsJson(AsyncWebServerRequest* request) {
     builder.addValue(APPassword);
     builder.addKey("sessions");
     builder.startArray();
-    for (TrainingsMeta &metadata : metas) {
+    for (TrainingsMeta &metadata : metas)
+    {
         builder.startObject();
         builder.addKey("fileSize");
         builder.addValue(int(metadata.fileSize));
@@ -397,8 +440,9 @@ void handleSessionsJson(AsyncWebServerRequest* request) {
     request->send(200, "application/json", builder.getJson());
 }
 
-void handleNotFound(AsyncWebServerRequest* request) {
-    AsyncWebServerResponse* response = request->beginResponse(SPIFFS, "/notFound.html", "text/html");
+void handleNotFound(AsyncWebServerRequest *request)
+{
+    AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/notFound.html", "text/html");
     request->send(response);
     // handleIndexPage(request);
     // Redirect to the start page on every connection
@@ -406,15 +450,15 @@ void handleNotFound(AsyncWebServerRequest* request) {
     // request->send(302, "text/plain", "Redirecting to the start page...");
 }
 
-
 /**
- * @brief Get the Triggers of a Session 
- * 
+ * @brief Get the Triggers of a Session
+ *
  * @param session the session
  * @param page = 0 will return only the newest Triggers
  * @param json output JSON
  */
-DoubleLinkedList<SessionPageInfo> buildSessionTriggers(JsonBuilder& builder, TrainingsSession& session, size_t page) {
+DoubleLinkedList<SessionPageInfo> buildSessionTriggers(JsonBuilder &builder, TrainingsSession &session, size_t page)
+{
     DoubleLinkedList<SessionPageInfo> sessionPageInfos = session.getSessionPages();
     SessionPageInfo sessionPage = sessionPageInfos.get(page);
     Serial.printf("Page %i from %i to %i\n", page, sessionPage.pageStart, sessionPage.pageEnd);
@@ -422,7 +466,8 @@ DoubleLinkedList<SessionPageInfo> buildSessionTriggers(JsonBuilder& builder, Tra
     session.skip(sessionPage.pageStart);
     size_t currentTriggerIndex = sessionPage.pageStart;
     builder.startArray();
-    while (session.hasNext() && currentTriggerIndex <= sessionPage.pageEnd) {
+    while (session.hasNext() && currentTriggerIndex <= sessionPage.pageEnd)
+    {
         builder.insertTriggerObj(session.next());
         currentTriggerIndex++;
     }
@@ -433,7 +478,8 @@ DoubleLinkedList<SessionPageInfo> buildSessionTriggers(JsonBuilder& builder, Tra
 
 bool updateSuccsessfull = false;
 
-void beginWiFi() {
+void beginWiFi()
+{
     Serial.println("Starting WiFi");
     // WiFi.eraseAP();
     // WiFi.disconnect(false, true);
@@ -448,7 +494,8 @@ void beginWiFi() {
     // dnsServer.start(DNS_PORT, "*", apIP);
 
     // server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
-    if(isDisplaySelect->getValue() && spiffsLogic.isVersionMatch()) { // is display and spiffs version is correct
+    if (isDisplaySelect->getValue() && spiffsLogic.isVersionMatch())
+    { // is display and spiffs version is correct
         server.on("/", HTTP_GET, handleIndexPage);
         server.on("/sessions.json", HTTP_GET, handleSessionsJson);
         server.on("/session", HTTP_GET, handleSession);
@@ -465,19 +512,24 @@ void beginWiFi() {
         server.onNotFound(handleNotFound);
         server.addHandler(&liveEventHandler);
         liveEventHandler.onConnect(handleLiveConnect);
-    } else {
+    }
+    else
+    {
         // everything is getting to the update page
         server.on("/", HTTP_GET, handleUpdatePage);
         server.onNotFound(handleUpdatePage);
     }
     // attach filesystem root at URL /fs
     // server.serveStatic("/fs", SPIFFS, "/");
-    server.on(PSTR("/uploadUpdate"), HTTP_POST, [](AsyncWebServerRequest * request) {
-        shouldReboot = true;
-        // AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", updateSuccsessfull ? "Update succsessful. Rebooting... Rebooting will take up to a minute. Dont cut power!" : "Update failed");
-        // response->addHeader("Connection", "close");
-        // request->send(response);
-    }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+    server.on(PSTR("/uploadUpdate"), HTTP_POST, [](AsyncWebServerRequest *request)
+              {
+                  shouldReboot = true;
+                  // AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", updateSuccsessfull ? "Update succsessful. Rebooting... Rebooting will take up to a minute. Dont cut power!" : "Update failed");
+                  // response->addHeader("Connection", "close");
+                  // request->send(response);
+              },
+              [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
+              {
         updateSuccsessfull = false;
         uiManager.popup("Updating...");
         uiManager.handle(true);
@@ -537,19 +589,18 @@ void beginWiFi() {
                 uiManager.handle(true);
                 delay(1000);
             }
-        }
-    });
+        } });
     server.begin();
 }
 
 // void endWiFi() {
-    // Serial.println("Stopping WiFi");
-    // server.end();
-    // // WiFi.enableAP(false);
-    // // WiFi.softAPdisconnect();
-    // WiFi.disconnect();
-    // WiFi.mode(WIFI_OFF);
-    // wifiRunning = false;
+// Serial.println("Stopping WiFi");
+// server.end();
+// // WiFi.enableAP(false);
+// // WiFi.softAPdisconnect();
+// WiFi.disconnect();
+// WiFi.mode(WIFI_OFF);
+// wifiRunning = false;
 // }
 
 bool cloudUploadRunning = false;
@@ -557,8 +608,10 @@ timeMs_t cloudUploadStart = 0;
 
 char uploadPopupMessage[20];
 
-bool handleCloudUpload() {
-    if(WiFi.status() == WL_CONNECTED) {
+bool handleCloudUpload()
+{
+    if (WiFi.status() == WL_CONNECTED)
+    {
         FastLED.clear();
         FastLED.setBrightness(10);
         matrix.print("Uploading", 1, 1, CRGB::BlueViolet, FONT_SIZE_SMALL + FONT_SETTINGS_DEFAULT);
@@ -580,28 +633,34 @@ bool handleCloudUpload() {
         size_t trainingsID = 0;
         bool succsess = true;
         DoubleLinkedList<String> uploadedFiles = DoubleLinkedList<String>();
-        for (auto &&trainingsMeta : spiffsLogic.getTrainingsMetas()) {
-            if(!spiffsLogic.hasTraining(trainingsMeta.fileName)) continue;
-            if(trainingsMeta.isRunning) continue;
+        for (auto &&trainingsMeta : spiffsLogic.getTrainingsMetas())
+        {
+            if (!spiffsLogic.hasTraining(trainingsMeta.fileName))
+                continue;
+            if (trainingsMeta.isRunning)
+                continue;
             Serial.printf("Uploading %s\n", trainingsMeta.fileName);
             TrainingsSession trainingsSession = spiffsLogic.getTraining(trainingsMeta.fileName);
             const int maxTriggersPerRequest = 5;
             trainingsSession.beginStream();
             bool firstPage = true;
             String sessionName = "";
-            while(trainingsSession.hasNext() && succsess) {
+            while (trainingsSession.hasNext() && succsess)
+            {
                 JsonBuilder builder = JsonBuilder();
                 builder.startObject();
                 builder.addKey("user");
                 builder.addValue(username);
-                if(!firstPage) {
+                if (!firstPage)
+                {
                     builder.addKey("sessionName");
                     builder.addValue(sessionName);
                 }
                 builder.addKey("triggers");
                 builder.startArray();
                 size_t currentSize = 0;
-                while (trainingsSession.hasNext() && currentSize < maxTriggersPerRequest) {
+                while (trainingsSession.hasNext() && currentSize < maxTriggersPerRequest)
+                {
                     Trigger trigger = trainingsSession.next();
                     builder.startObject();
                     builder.addKey("triggerType");
@@ -616,31 +675,42 @@ bool handleCloudUpload() {
                 builder.endArray();
                 builder.endObject();
                 int httpResponseCode = http.POST(builder.getJson());
-                if (httpResponseCode == 200) {
+                if (httpResponseCode == 200)
+                {
                     sessionName = http.getString();
                     firstPage = false;
                     Serial.println("Response from roller results: " + sessionName);
                     sprintf(uploadPopupMessage, "Uploaded %i/%i", trainingsID, spiffsLogic.getTrainingsMetas().getSize());
                     uiManager.handle(true);
-                } else {
+                }
+                else
+                {
                     sprintf(uploadPopupMessage, "Upload error: %i", httpResponseCode);
                     uiManager.handle(true);
                     Serial.printf("Error during upload request. Error code: %i abording upload process\n", httpResponseCode);
                     succsess = false;
                 }
             }
-            if(succsess) {
+            if (succsess)
+            {
                 uploadedFiles.pushBack(trainingsMeta.fileName);
-            } else {
+            }
+            else
+            {
                 break;
             }
             trainingsID++;
         }
-        if(succsess) {
-            for (auto &&fileName : uploadedFiles) {
-                if(spiffsLogic.deleteSession(fileName)) {
+        if (succsess)
+        {
+            for (auto &&fileName : uploadedFiles)
+            {
+                if (spiffsLogic.deleteSession(fileName))
+                {
                     Serial.printf("Deleted %s\n", fileName);
-                } else {
+                }
+                else
+                {
                     Serial.printf("Could not delete session %s\n", fileName);
                 }
             }
@@ -648,26 +718,34 @@ bool handleCloudUpload() {
         }
         http.end();
         return true;
-    } else if(millis() - cloudUploadStart > 5000) {
+    }
+    else if (millis() - cloudUploadStart > 5000)
+    {
         Serial.printf("Could not connect to %s!\n", uploadWifiSSID);
         return true;
     }
     return false;
 }
 
-void tryInitUpload() {
-    if(uploadWifiSSID.length() < 2) {
+void tryInitUpload()
+{
+    if (uploadWifiSSID.length() < 2)
+    {
         uiManager.popup("Setup on website first!");
         return;
     }
-    if(spiffsLogic.getTrainingsMetas().getSize() <= 1) {
+    if (spiffsLogic.getTrainingsMetas().getSize() <= 1)
+    {
         uiManager.popup("Nothing to upload");
         return;
     }
     Serial.printf("Connecting to %s...\n", uploadWifiSSID);
-    if(uploadWifiPassword.length() == 0) {
+    if (uploadWifiPassword.length() == 0)
+    {
         WiFi.begin(uploadWifiSSID);
-    } else {
+    }
+    else
+    {
         WiFi.begin(uploadWifiSSID, uploadWifiPassword);
     }
     cloudUploadStart = millis();
@@ -685,14 +763,16 @@ void tryInitUpload() {
 //     wifiRunning = active;
 // }
 
-
-void handleWiFi() {
-    if(shouldReboot){
+void handleWiFi()
+{
+    if (shouldReboot)
+    {
         Serial.println("Rebooting...");
         delay(100);
         ESP.restart();
     }
-    if(restardWifiTime && millis() > restardWifiTime) {
+    if (restardWifiTime && millis() > restardWifiTime)
+    {
         uiManager.popup("WiFi updated");
         uiManager.handle(true);
         delay(500);
@@ -702,22 +782,27 @@ void handleWiFi() {
         ESP.restart();
     }
     // start gun
-    if(millis() > startGunTime) {
-        masterTrigger(Trigger { startGunTime, 0, STATION_TRIGGER_TYPE_START });
+    if (millis() > startGunTime)
+    {
+        masterTrigger(Trigger{startGunTime, 0, STATION_TRIGGER_TYPE_START});
         startGunTime = INT32_MAX;
     }
     static bool cloudUploadAttempted = false;
-    if(uploadWifiSSID.length() >= 2 && !cloudUploadAttempted && cloudUploadEnabled->isChecked() && spiffsLogic.getTrainingsMetas().getSize() > 1) { // dont upload current session
-        if(millis() > 10000) {
+    if (uploadWifiSSID.length() >= 2 && !cloudUploadAttempted && cloudUploadEnabled->isChecked() && spiffsLogic.getTrainingsMetas().getSize() > 1)
+    { // dont upload current session
+        if (millis() > 10000)
+        {
             tryInitUpload();
             cloudUploadAttempted = true;
         }
     }
-    if(cloudUploadRunning) {
+    if (cloudUploadRunning)
+    {
         cloudUploadRunning = !handleCloudUpload();
     }
     static size_t lastTriggerCount = 0;
-    if(spiffsLogic.getActiveTraining().getTriggerCount() > lastTriggerCount) {
+    if (spiffsLogic.getActiveTraining().getTriggerCount() > lastTriggerCount)
+    {
         resolveLiveRequests(spiffsLogic.getActiveTraining().getTriggerCount() - lastTriggerCount);
         lastTriggerCount = spiffsLogic.getActiveTraining().getTriggerCount();
     }

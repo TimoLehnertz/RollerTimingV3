@@ -1,4 +1,4 @@
-#define VERSION "3.0"
+#define VERSION "3.1"
 
 /**
  * All IO pin definitions
@@ -16,13 +16,12 @@
 #define LoRa_nrst 12
 #define LoRa_busy 13
 
-
 // Passive buzzer
 #define PIN_BUZZER_PLUS 48
 #define PIN_BUZZER_GND 33
 
 /**
- * Rotary encoder (GIAK) KY-040 
+ * Rotary encoder (GIAK) KY-040
  * https://www.amazon.de/GIAK-Drehwinkelgeber-Druckknopf-Automobilelektronik-Multimedia-Audio/dp/B09726Y8RB/ref=sr_1_1_sspa?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=1LTME6CGAIHYZ&keywords=rotary+encoder&qid=1688818356&sprefix=rotary+encoder%2Caps%2C77&sr=8-1-spons&sp_csd=d2lkZ2V0TmFtZT1zcF9hdGY&psc=1
  * Connect all pins directly
  */
@@ -60,6 +59,5 @@
 #define NUM_LEDS_LASER 4
 #define MAX_AMPS_PER_PIXEL 0.05
 #define MAX_CONTINUOUS_AMPS 0.5 // should give approx 20 - 24h of battery life on a 12Wh battery
-
 
 #define MAX_CONNECTIONS 50

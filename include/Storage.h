@@ -4,9 +4,9 @@
  * @brief Contains all code related to storing data outside the ram
  * @version 0.1
  * @date 2023-07-10
- * 
+ *
  * @copyright Copyright (c) 2023
- * 
+ *
  */
 #pragma once
 
@@ -22,7 +22,8 @@ Preferences preferences;
 void isDisplayChanged();
 // void wifiEnabledChanged();
 
-void writePreferences() {
+void writePreferences()
+{
   Serial.println("Writing to preferences");
   // preferences.putDouble("startDist", distFromStartInput->getValue());
   preferences.putDouble("minDelay", minDelayInput->getValue());
@@ -42,7 +43,8 @@ void writePreferences() {
   preferences.putInt("lapDisplayType", lapDisplayTypeSelect->getValue());
 }
 
-void readPreferences() {
+void readPreferences()
+{
   Serial.println("Reading from preferences");
   // distFromStartInput->setValue(preferences.getDouble("startDist"));
   minDelayInput->setValue(preferences.getDouble("minDelay"));
@@ -61,17 +63,20 @@ void readPreferences() {
   //   wifiEnabledCB->setChecked(preferences.getBool("wifiOn"), false);
   //   wifiEnabledChanged();
   // }
-  if(isDisplaySelect->getValue()) { // is display
+  if (isDisplaySelect->getValue())
+  { // is display
     APSsid = preferences.getString("APSsid");
     APPassword = preferences.getString("APPassword");
+    Serial.println(APSsid);
   } // otherwise ssid and password will be set by defaults
   wiFiCredentialsChanged();
 }
 
 /**
- * @note Blocking for more than 100ms 
+ * @note Blocking for more than 100ms
  */
-void resetAllSettings() {
+void resetAllSettings()
+{
   distFromStartInput->setValue(30);
   minDelayInput->setValue(1);
   displayBrightnessInput->setValue(10);
@@ -103,7 +108,8 @@ void resetAllSettings() {
   // isDisplayChanged();
 }
 
-void factoryReset() {
+void factoryReset()
+{
   Serial.println("Resetting");
   uiManager.handle(true);
   int isDisplay = preferences.getInt("isDisplay");
@@ -119,11 +125,15 @@ void factoryReset() {
   ESP.restart();
 }
 
-void beginPreferences() {
+void beginPreferences()
+{
   preferences.begin("rr-timing", false);
-  if(preferences.getInt("check") == STORAGE_CHECK) {
+  if (preferences.getInt("check") == STORAGE_CHECK)
+  {
     readPreferences();
-  } else {
+  }
+  else
+  {
     preferences.putInt("check", STORAGE_CHECK);
     factoryReset();
   }
